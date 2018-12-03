@@ -54,9 +54,60 @@ Here are other example situations:
 Starting with a frequency of zero, what is the resulting frequency after all of the changes in frequency
 have been applied?
 
+--- Part Two ---
+
+You notice that the device repeats the same frequency change list over and over.
+To calibrate the device, you need to find the first frequency it reaches twice.
+
+For example, using the same list of changes above, the device would loop as follows:
+
+Current frequency  0, change of +1; resulting frequency  1.
+Current frequency  1, change of -2; resulting frequency -1.
+Current frequency -1, change of +3; resulting frequency  2.
+Current frequency  2, change of +1; resulting frequency  3.
+(At this point, the device continues from the start of the list.)
+Current frequency  3, change of +1; resulting frequency  4.
+Current frequency  4, change of -2; resulting frequency  2, which has already been seen.
+
+In this example, the first frequency reached twice is 2.
+Note that your device might need to repeat its list of frequency changes many times before a duplicate frequency is found,
+and that duplicates might be found while in the middle of processing the list.
+
+Here are other examples:
+
++1, -1 first reaches 0 twice.
++3, +3, +4, -2, -4 first reaches 10 twice.
+-6, +3, +8, +5, -6 first reaches 5 twice.
++7, +7, -2, -7, -4 first reaches 14 twice.
+
+What is the first frequency your device reaches twice?
+
 */
 
+fun processFrequencyChanges(input: String) = processFrequencyChanges(parseFrequencyChanges(input))
 
+fun processFrequencyChanges(input: List<Int>) = input.sum()
+
+fun parseFrequencyChanges(input: String) = input.split('\n').map { it.toInt() }
+
+fun findRepeatedFrequency(input: String) = findRepeatedFrequency(parseFrequencyChanges(input))
+
+
+fun findRepeatedFrequency(input: List<Int>): Int {
+    val frequencySet = mutableSetOf<Int>(0)
+    var currentFrequency = 0
+    sequence {
+        while(true) yieldAll(input)
+    }
+    .forEach {
+        currentFrequency += it
+        if (currentFrequency in frequencySet) return currentFrequency
+        else {
+            frequencySet += currentFrequency
+        }
+    }
+    throw IllegalArgumentException("No repeated frequency found")
+}
 
 class Day1Spec : Spek({
 
@@ -88,12 +139,31 @@ class Day1Spec : Spek({
     }
 
     describe("part 2") {
+        given("example input") {
+            val testData = arrayOf(
+                    data("+1\n-2\n+3\n+1", 2),
+                    data("+1\n-1", 0),
+                    data("+3\n+3\n+4\n-2\n-4", 10),
+                    data("-6\n+3\n+8\n+5\n-6", 5),
+                    data("+7\n+7\n-2\n-7\n-4", 14)
+            )
+
+            onData("call for action %s", with = *testData) { input, expected ->
+                val result = findRepeatedFrequency(input)
+                it("returns $expected") {
+                    result `should equal` expected
+                }
+            }
+        }
+        describe("exercise") {
+            given("exercise input") {
+                val input = readResource("day01Input.txt")
+                it("should calculate correct result") {
+                    val result = findRepeatedFrequency(input)
+                    result `should equal` 390
+                }
+            }
+        }
     }
 })
-
-fun processFrequencyChanges(input: String) = processFrequencyChanges(parseFrequencyChanges(input))
-
-fun processFrequencyChanges(input: List<Int>) = input.sum()
-
-fun parseFrequencyChanges(input: String) = input.split('\n').map { it.toInt() }
 
