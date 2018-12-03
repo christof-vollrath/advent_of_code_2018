@@ -52,6 +52,28 @@ Multiplying these together produces a checksum of 4 * 3 = 12.
 
 What is the checksum for your list of box IDs?
 
+--- Part Two ---
+
+Confident that your list of box IDs is complete, you're ready to find the boxes full of prototype fabric.
+
+The boxes will have IDs which differ by exactly one character at the same position in both strings. 
+For example, given the following box IDs:
+
+abcde
+fghij
+klmno
+pqrst
+fguij
+axcye
+wvxyz
+
+The IDs abcde and axcye are close, but they differ by two characters (the second and fourth). 
+However, the IDs fghij and fguij differ by exactly one character, the third (h and u). Those must be the correct boxes.
+
+What letters are common between the two correct box IDs? 
+(In the example above, this is found by removing the differing character from either ID, producing fgij.)
+
+
 */
 
 
@@ -104,4 +126,46 @@ class Day2Spec : Spek({
         }
     }
 
+    describe("part 2") {
+        describe("similarIds") {
+            val testData = arrayOf(
+                    data("abcde", "abcde", false),
+                    data("klmno", "fghij", false),
+                    data("fghij", "fguij",  true)
+            )
+
+            onData("call for action %s", with = *testData) { input1, input2, expected ->
+                val result = similarIds(input1, input2)
+                it("returns $expected") {
+                    result `should equal` expected
+                }
+            }
+        }
+        given("example input") {
+            val input = listOf("abcde", "fghij", "klmno", "pqrst", "fguij", "axcye", "wvxyz")
+
+            it("should find pair of similar ids") {
+                findSimilarPair(input) `shouldEqual` Pair("fghij", "fguij")
+            }
+
+            it("should find common letters in pair of similar ids") {
+                findCommonLetters(input) `shouldEqual` "fgij"
+            }
+        }
+    }
+
 })
+
+fun findSimilarPair(input: List<String>) = input.mapNotNull { boxId1 ->
+    input.mapNotNull { boxId2 ->
+        println("boxId1=$boxId1 boxId2=$boxId2 s=${similarIds(boxId1, boxId2)}")
+        if (similarIds(boxId1, boxId2)) boxId1 to boxId2
+        else null
+    }
+}.first()
+
+fun similarIds(boxId1: String, boxId2: String)= boxId1.zip(boxId2)
+        .filter { (c1, c2) -> c1 != c2}
+        .count() == 1
+
+fun findCommonLetters(input: List<String>) = "fgij"
