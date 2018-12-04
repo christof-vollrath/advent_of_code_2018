@@ -1,6 +1,5 @@
 
 import org.amshove.kluent.`should equal`
-import org.amshove.kluent.shouldEqual
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.given
@@ -90,7 +89,7 @@ class Day2Spec : Spek({
             val input = listOf("abcdef", "bababc", "abbcde", "abcccd", "aabcdd", "abcdee", "ababab")
 
             it("should calculate checksum") {
-                boxIdsChecksum(input) `shouldEqual` 12
+                boxIdsChecksum(input) `should equal` 12
             }
         }
         describe("hasRepeatedChars") {
@@ -145,11 +144,11 @@ class Day2Spec : Spek({
             val input = listOf("abcde", "fghij", "klmno", "pqrst", "fguij", "axcye", "wvxyz")
 
             it("should find pair of similar ids") {
-                findSimilarPair(input) `shouldEqual` Pair("fghij", "fguij")
+                findSimilarPair(input) `should equal` Pair("fghij", "fguij")
             }
 
             it("should find common letters in pair of similar ids") {
-                findCommonLetters(input) `shouldEqual` "fgij"
+                findCommonLetters(input) `should equal` "fgij"
             }
         }
         describe("exercise") {

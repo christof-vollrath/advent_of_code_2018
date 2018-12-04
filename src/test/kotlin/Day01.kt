@@ -94,7 +94,7 @@ fun findRepeatedFrequency(input: String) = findRepeatedFrequency(parseFrequencyC
 
 
 fun findRepeatedFrequency(input: List<Int>): Int {
-    val frequencySet = mutableSetOf<Int>(0)
+    val frequencySet = mutableSetOf(0)
     var currentFrequency = 0
     sequence {
         while(true) yieldAll(input)
