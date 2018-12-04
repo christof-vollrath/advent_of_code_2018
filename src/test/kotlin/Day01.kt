@@ -109,7 +109,7 @@ fun findRepeatedFrequency(input: List<Int>): Int {
     throw IllegalArgumentException("No repeated frequency found")
 }
 
-class Day1Spec : Spek({
+class Day01Spec : Spek({
 
     describe("part 1") {
         given("example input") {

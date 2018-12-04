@@ -82,7 +82,7 @@ fun countBoxIdsWithRepeatedChars(input: List<String>,  nr: Int) = input.filter {
 
 fun boxIdsChecksum(input: List<String>) = countBoxIdsWithRepeatedChars(input, 2) * countBoxIdsWithRepeatedChars(input, 3)
 
-class Day2Spec : Spek({
+class Day02Spec : Spek({
 
     describe("part 1") {
         given("example input") {
