@@ -101,7 +101,7 @@ class Day2Spec : Spek({
                     data("abcccd",false, true),
                     data("aabcdd",true,  false),
                     data("abcdee",true,  false),
-                    data("ababab",true,  true)
+                    data("ababab",false,  true)
             )
 
             onData("call for action %s", with = *testData) { input, expected2, expected3 ->
@@ -152,20 +152,36 @@ class Day2Spec : Spek({
                 findCommonLetters(input) `shouldEqual` "fgij"
             }
         }
+        describe("exercise") {
+            given("exercise input") {
+                val input = readResource("day02Input.txt").split('\n')
+                it("should calculate correct result") {
+                    val result = findCommonLetters(input)
+                    result `should equal` "uwfmdjxyxlbgnrotcfpvswaqh"
+                }
+
+            }
+        }
     }
 
 })
 
-fun findSimilarPair(input: List<String>) = input.mapNotNull { boxId1 ->
-    input.mapNotNull { boxId2 ->
-        println("boxId1=$boxId1 boxId2=$boxId2 s=${similarIds(boxId1, boxId2)}")
-        if (similarIds(boxId1, boxId2)) boxId1 to boxId2
-        else null
+fun findSimilarPair(input: List<String>): Pair<String, String> = input.flatMap { boxId1 ->
+        input.mapNotNull { boxId2 ->
+            if (similarIds(boxId1, boxId2)) boxId1 to boxId2
+            else null
+        }
     }
-}.first()
+    .first()
 
 fun similarIds(boxId1: String, boxId2: String)= boxId1.zip(boxId2)
         .filter { (c1, c2) -> c1 != c2}
         .count() == 1
 
-fun findCommonLetters(input: List<String>) = "fgij"
+fun findCommonLetters(input: List<String>) = findSimilarPair(input).let { (boxId1, boxId2) ->
+    boxId1.zip(boxId2).mapNotNull { (c1, c2) ->
+        if (c1 == c2) c1
+        else null
+    }
+    .joinToString("")
+}
