@@ -139,43 +139,48 @@ class Day03Spec : Spek({
 
 fun mergeClaims(claims: List<Claim>) = claims.drop(1).fold(claims.first()) { acc: AbstractClaim, claim ->  acc + claim }
 
-operator fun AbstractClaim.plus(other: AbstractClaim) = MergedClaim(charMap).also {
-    other.charMap.forEach { pos, c ->
-        val current = it.charMap[pos]
-        if (current == null || current == '.') it.charMap[pos] = c
-        else it.charMap[pos] = 'X'
+operator fun AbstractClaim.plus(other: AbstractClaim) = MergedClaim(squareMap).also {
+    other.squareMap.forEach { pos, c ->
+        val current = it.squareMap[pos]
+        if (current == null) it.squareMap[pos] = c
+        else it.squareMap[pos] = 0
     }
 }
 
 abstract class AbstractClaim() {
-    abstract val charMap: MutableMap<Pair<Int, Int>, Char>
+    abstract val squareMap: MutableMap<Pair<Int, Int>, Int>
 
     fun toStringMap(): String {
-        val maxX = charMap.keys.maxBy { it.first }!!.first
-        val maxY = charMap.keys.maxBy { it.second }!!.second
+        val maxX = squareMap.keys.maxBy { it.first }!!.first
+        val maxY = squareMap.keys.maxBy { it.second }!!.second
         val chars = (1..maxY).map { y ->
             (1..maxX).map { x ->
-                charMap[x to y] ?: '.'
+                val square = squareMap[x to y]
+                when (square) {
+                    0 -> 'X'
+                    null -> '.'
+                    else -> (square % 10).toString()[0]
+                }
             }
         }
         return chars.map { it.joinToString("")}.joinToString("\n")
     }
 
-    fun countTwoOrMoreClaims() = charMap.values.filter { it == 'X'}.count()
+    fun countTwoOrMoreClaims() = squareMap.values.filter { it == 0}.count()
 }
 
 data class Claim(val id: Int, val x: Int, val y: Int, val width: Int, val height: Int) : AbstractClaim() {
-    override val charMap =
-        mutableMapOf<Pair<Int, Int>, Char>().also {
+    override val squareMap =
+        mutableMapOf<Pair<Int, Int>, Int>().also {
             (1..width).forEach { dx ->
                 (1..height).forEach { dy ->
-                    it[(x + dx) to (y + dy)] = (id % 10).toString()[0]
+                    it[(x + dx) to (y + dy)] = id
                 }
             }
         }
 }
 
-class MergedClaim(override val charMap: MutableMap<Pair<Int, Int>, Char>) : AbstractClaim()
+class MergedClaim(override val squareMap: MutableMap<Pair<Int, Int>, Int>) : AbstractClaim()
 
 fun parseClaim(input: String): Claim {
     val  regex = """#(\d+)\s*@\s*(\d+)\s*,\s*(\d+)\s*:\s*(\d+)\s*x\s*(\d+)""".toRegex()
