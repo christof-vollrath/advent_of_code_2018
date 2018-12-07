@@ -42,12 +42,6 @@ dependencies {
     compile group: 'org.jetbrains.kotlinx', name: 'kotlinx-coroutines-core', version: '1.0.1'
 }
 
-kotlin {
-    experimental {
-        coroutines 'enable'
-    }
-}
-
 compileKotlin {
     kotlinOptions.jvmTarget = "1.8"
 }

@@ -70,8 +70,75 @@ For example, in the claims above, only claim 3 is intact after all claims are ma
 
 What is the ID of the only claim that doesn't overlap?
 
-
  */
+
+abstract class AbstractClaim() {
+    abstract val squareMap: MutableMap<Pair<Int, Int>, Int>
+    abstract val claimIds: Set<Int>
+    abstract val overlappingClaimIds: Set<Int>
+
+    fun toStringMap(): String {
+        val maxX = squareMap.keys.maxBy { it.first }!!.first
+        val maxY = squareMap.keys.maxBy { it.second }!!.second
+        val chars = (1..maxY).map { y ->
+            (1..maxX).map { x ->
+                val square = squareMap[x to y]
+                when (square) {
+                    0 -> 'X'
+                    null -> '.'
+                    else -> (square % 10).toString()[0]
+                }
+            }
+        }
+        return chars.map { it.joinToString("")}.joinToString("\n")
+    }
+
+    fun countTwoOrMoreClaims() = squareMap.values.filter { it == 0}.count()
+    fun nonOverlappingClaim() = (claimIds - overlappingClaimIds).first()
+}
+
+data class Claim(val id: Int, val x: Int, val y: Int, val width: Int, val height: Int) : AbstractClaim() {
+    override val squareMap =
+            mutableMapOf<Pair<Int, Int>, Int>().also {
+                (1..width).forEach { dx ->
+                    (1..height).forEach { dy ->
+                        it[(x + dx) to (y + dy)] = id
+                    }
+                }
+            }
+    override val claimIds = setOf(id)
+    override val overlappingClaimIds: Set<Int> = emptySet()
+}
+
+class MergedClaim(override val squareMap: MutableMap<Pair<Int, Int>, Int>,
+                  override val claimIds: Set<Int> = emptySet(),
+                  override val overlappingClaimIds: Set<Int> = emptySet()) : AbstractClaim()
+
+fun mergeClaims(claims: List<Claim>) = claims.drop(1).fold(claims.first()) { acc: AbstractClaim, claim ->  acc + claim }
+
+operator fun AbstractClaim.plus(other: AbstractClaim): MergedClaim {
+    val resultingClaimIds = claimIds + other.claimIds
+    val resultingOverlappingClaimIds: MutableSet<Int> = (overlappingClaimIds + other.overlappingClaimIds).toMutableSet()
+    val resultingSquareMap = squareMap
+    other.squareMap.forEach { pos, c ->
+        val current = this.squareMap[pos]
+        if (current == null) this.squareMap[pos] = c
+        else { // overlapping claims
+            resultingOverlappingClaimIds.add(c)
+            resultingOverlappingClaimIds.add(current)
+            resultingSquareMap[pos] = 0
+        }
+    }
+    return MergedClaim(resultingSquareMap, resultingClaimIds, resultingOverlappingClaimIds)
+}
+
+fun parseClaim(input: String): Claim {
+    val  regex = """#(\d+)\s*@\s*(\d+)\s*,\s*(\d+)\s*:\s*(\d+)\s*x\s*(\d+)""".toRegex()
+    val match = regex.find(input) ?: throw IllegalArgumentException("Can not parse input")
+    if (match.groupValues.size != 6) throw IllegalArgumentException("Not all elements parsed")
+    val values = match.groupValues
+    return Claim(values[1].toInt(), values[2].toInt(), values[3].toInt(), values[4].toInt(), values[5].toInt())
+}
 
 class Day03Spec : Spek({
 
@@ -131,61 +198,27 @@ class Day03Spec : Spek({
                 val result = mergeClaims(input)
                 result.countTwoOrMoreClaims() `should equal` 101469
             }
-
         }
+    }
+    describe("part 2") {
+        given("list of claims") {
+            val claims = listOf("#1 @ 1,3: 4x4", "#2 @ 3,1: 4x4", "#3 @ 5,5: 2x2").map { parseClaim(it) }
 
+            val mergedClaim = mergeClaims(claims)
+            it("should have merged all claims") {
+                mergedClaim.claimIds `should equal` setOf(1, 2, 3)
+                mergedClaim.overlappingClaimIds `should equal` setOf(1, 2)
+            }
+            it("should find non-overlapping claim") {
+                mergedClaim.nonOverlappingClaim() `should equal` 3
+            }
+        }
+        given("exercise") {
+            val input = readResource("day03Input.txt").split('\n').map { parseClaim(it) }
+            it("should calculate correct result") {
+                val result = mergeClaims(input)
+                result.nonOverlappingClaim() `should equal` 1067
+            }
+        }
     }
 })
-
-fun mergeClaims(claims: List<Claim>) = claims.drop(1).fold(claims.first()) { acc: AbstractClaim, claim ->  acc + claim }
-
-operator fun AbstractClaim.plus(other: AbstractClaim) = MergedClaim(squareMap).also {
-    other.squareMap.forEach { pos, c ->
-        val current = it.squareMap[pos]
-        if (current == null) it.squareMap[pos] = c
-        else it.squareMap[pos] = 0
-    }
-}
-
-abstract class AbstractClaim() {
-    abstract val squareMap: MutableMap<Pair<Int, Int>, Int>
-
-    fun toStringMap(): String {
-        val maxX = squareMap.keys.maxBy { it.first }!!.first
-        val maxY = squareMap.keys.maxBy { it.second }!!.second
-        val chars = (1..maxY).map { y ->
-            (1..maxX).map { x ->
-                val square = squareMap[x to y]
-                when (square) {
-                    0 -> 'X'
-                    null -> '.'
-                    else -> (square % 10).toString()[0]
-                }
-            }
-        }
-        return chars.map { it.joinToString("")}.joinToString("\n")
-    }
-
-    fun countTwoOrMoreClaims() = squareMap.values.filter { it == 0}.count()
-}
-
-data class Claim(val id: Int, val x: Int, val y: Int, val width: Int, val height: Int) : AbstractClaim() {
-    override val squareMap =
-        mutableMapOf<Pair<Int, Int>, Int>().also {
-            (1..width).forEach { dx ->
-                (1..height).forEach { dy ->
-                    it[(x + dx) to (y + dy)] = id
-                }
-            }
-        }
-}
-
-class MergedClaim(override val squareMap: MutableMap<Pair<Int, Int>, Int>) : AbstractClaim()
-
-fun parseClaim(input: String): Claim {
-    val  regex = """#(\d+)\s*@\s*(\d+)\s*,\s*(\d+)\s*:\s*(\d+)\s*x\s*(\d+)""".toRegex()
-    val match = regex.find(input) ?: throw IllegalArgumentException("Can not parse input")
-    if (match.groupValues.size != 6) throw IllegalArgumentException("Not all elements parsed")
-    val values = match.groupValues
-    return Claim(values[1].toInt(), values[2].toInt(), values[3].toInt(), values[4].toInt(), values[5].toInt())
-}
