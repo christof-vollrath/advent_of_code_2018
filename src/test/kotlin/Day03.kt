@@ -72,64 +72,61 @@ What is the ID of the only claim that doesn't overlap?
 
  */
 
-abstract class AbstractClaim() {
-    abstract val squareMap: MutableMap<Pair<Int, Int>, Int>
+abstract class AbstractClaim {
+    abstract val squareMap: Map<Pair<Int, Int>, Int>
     abstract val claimIds: Set<Int>
     abstract val overlappingClaimIds: Set<Int>
 
-    fun toStringMap(): String {
-        val maxX = squareMap.keys.maxBy { it.first }!!.first
-        val maxY = squareMap.keys.maxBy { it.second }!!.second
-        val chars = (1..maxY).map { y ->
-            (1..maxX).map { x ->
-                val square = squareMap[x to y]
-                when (square) {
-                    0 -> 'X'
-                    null -> '.'
-                    else -> (square % 10).toString()[0]
-                }
-            }
-        }
-        return chars.map { it.joinToString("")}.joinToString("\n")
-    }
-
-    fun countTwoOrMoreClaims() = squareMap.values.filter { it == 0}.count()
-    fun nonOverlappingClaim() = (claimIds - overlappingClaimIds).first()
+    fun countSquaresWithOverlappingClaims() = squareMap.values.filter { it == 0}.count()
+    fun nonOverlappingClaims() = claimIds - overlappingClaimIds
 }
 
 data class Claim(val id: Int, val x: Int, val y: Int, val width: Int, val height: Int) : AbstractClaim() {
     override val squareMap =
-            mutableMapOf<Pair<Int, Int>, Int>().also {
-                (1..width).forEach { dx ->
-                    (1..height).forEach { dy ->
-                        it[(x + dx) to (y + dy)] = id
-                    }
+            (1..width).flatMap { dx ->
+                (1..height).map { dy ->
+                    (x + dx) to (y + dy) to id
                 }
-            }
+            }.toMap()
+
     override val claimIds = setOf(id)
     override val overlappingClaimIds: Set<Int> = emptySet()
 }
 
-class MergedClaim(override val squareMap: MutableMap<Pair<Int, Int>, Int>,
-                  override val claimIds: Set<Int> = emptySet(),
-                  override val overlappingClaimIds: Set<Int> = emptySet()) : AbstractClaim()
+class MergedClaim(override val squareMap: MutableMap<Pair<Int, Int>, Int> = mutableMapOf(),
+                  override val claimIds: MutableSet<Int> = mutableSetOf(),
+                  override val overlappingClaimIds: MutableSet<Int> = mutableSetOf()) : AbstractClaim()
 
-fun mergeClaims(claims: List<Claim>) = claims.drop(1).fold(claims.first()) { acc: AbstractClaim, claim ->  acc + claim }
+fun mergeClaims(claims: List<Claim>) = claims.fold(MergedClaim()) { acc, claim ->  acc += claim; acc }
 
-operator fun AbstractClaim.plus(other: AbstractClaim): MergedClaim {
-    val resultingClaimIds = claimIds + other.claimIds
-    val resultingOverlappingClaimIds: MutableSet<Int> = (overlappingClaimIds + other.overlappingClaimIds).toMutableSet()
-    val resultingSquareMap = squareMap
-    other.squareMap.forEach { pos, c ->
-        val current = this.squareMap[pos]
-        if (current == null) this.squareMap[pos] = c
+operator fun MergedClaim.plusAssign(other: AbstractClaim) {
+    claimIds += other.claimIds
+    overlappingClaimIds += other.overlappingClaimIds
+    other.squareMap.forEach { pos, otherSquare ->
+        val square = squareMap[pos]
+        if (square == null) squareMap[pos] = otherSquare
         else { // overlapping claims
-            resultingOverlappingClaimIds.add(c)
-            resultingOverlappingClaimIds.add(current)
-            resultingSquareMap[pos] = 0
+            overlappingClaimIds.add(otherSquare)
+            overlappingClaimIds.add(square)
+            squareMap[pos] = 0
         }
     }
-    return MergedClaim(resultingSquareMap, resultingClaimIds, resultingOverlappingClaimIds)
+}
+
+fun AbstractClaim.toStringMap(): String {
+    val maxX = squareMap.keys.maxBy { it.first }!!.first
+    val maxY = squareMap.keys.maxBy { it.second }!!.second
+    val chars = (1..maxY).map { y ->
+        (1..maxX).map { x ->
+            val square = squareMap[x to y]
+            when (square) {
+                0 -> 'X'
+                null -> '.'
+                else -> (square % 10).toString()[0]
+            }
+        }
+    }
+    return chars.joinToString("\n") { it.joinToString("")}
 }
 
 fun parseClaim(input: String): Claim {
@@ -165,7 +162,7 @@ class Day03Spec : Spek({
             val claim1 = parseClaim("#1 @ 1,3: 4x4")
             val claim2 = parseClaim("#2 @ 3,1: 4x4")
             val claim3 = parseClaim("#3 @ 5,5: 2x2")
-            val mergedClaim = claim1 + claim2 + claim3
+            val mergedClaim = mergeClaims(listOf(claim1, claim2, claim3))
 
             it("should be merged to one claim") {
                 mergedClaim.toStringMap() `should equal` """
@@ -179,7 +176,7 @@ class Day03Spec : Spek({
                 """.trimIndent()
             }
             it("should have correct count of two or more claims") {
-                mergedClaim.countTwoOrMoreClaims() `should equal` 4
+                mergedClaim.countSquaresWithOverlappingClaims() `should equal` 4
             }
 
         }
@@ -188,7 +185,7 @@ class Day03Spec : Spek({
 
             val mergedClaim = mergeClaims(claims)
             it("should have correct count for list of claims") {
-                mergedClaim.countTwoOrMoreClaims() `should equal` 4
+                mergedClaim.countSquaresWithOverlappingClaims() `should equal` 4
             }
 
         }
@@ -196,7 +193,7 @@ class Day03Spec : Spek({
             val input = readResource("day03Input.txt").split('\n').map { parseClaim(it) }
             it("should calculate correct result") {
                 val result = mergeClaims(input)
-                result.countTwoOrMoreClaims() `should equal` 101469
+                result.countSquaresWithOverlappingClaims() `should equal` 101469
             }
         }
     }
@@ -210,14 +207,14 @@ class Day03Spec : Spek({
                 mergedClaim.overlappingClaimIds `should equal` setOf(1, 2)
             }
             it("should find non-overlapping claim") {
-                mergedClaim.nonOverlappingClaim() `should equal` 3
+                mergedClaim.nonOverlappingClaims() `should equal` setOf(3)
             }
         }
         given("exercise") {
             val input = readResource("day03Input.txt").split('\n').map { parseClaim(it) }
             it("should calculate correct result") {
                 val result = mergeClaims(input)
-                result.nonOverlappingClaim() `should equal` 1067
+                result.nonOverlappingClaims().first() `should equal` 1067
             }
         }
     }
