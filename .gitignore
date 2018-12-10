@@ -31,3 +31,5 @@ out/
 
 # Avoid ignoring Gradle wrapper jar file (.jar files are usually ignored)
 !gradle-wrapper.jar
+
+advent_of_code_2018.iml
