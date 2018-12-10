@@ -81,24 +81,47 @@ You'll need to organize them before they can be analyzed.
 What is the ID of the guard you chose multiplied by the minute you chose?
 (In the above example, the answer would be 10 * 24 = 240.)
 
+--- Part Two ---
+
+Strategy 2: Of all guards, which guard is most frequently asleep on the same minute?
+
+In the example above, Guard #99 spent minute 45 asleep more than any other guard or minute - three times in total.
+(In all other cases, any guard spent any minute asleep at most twice.)
+
+What is the ID of the guard you chose multiplied by the minute you chose?
+(In the above example, the answer would be 99 * 45 = 4455.)
+
  */
 
 
-fun guardStrategy1(input: String) = detectIntervals(parseGuardRecords(input)).let {
-    val mostAsleep = findMostAsleep(it)
-    mostAsleep * findMinuteMostLikelyAsleep(it[mostAsleep]!!)
+fun guardStrategy1(input: String) = detectIntervals(parseGuardRecords(input)).run {
+    val mostAsleep = findMostAsleep(this)
+    mostAsleep * findMinuteMostLikelyAsleep(this[mostAsleep]!!)
 }
 
+fun guardStrategy2(input: String) = detectIntervals(parseGuardRecords(input)).run {
+    data class SleepEntry(val minute: Int, val timesAsleep: Int)
+    val guardMap = map { (guard, sleepingIntervals) ->
+        val sleepingMap = createSleepFrequencyMap(sleepingIntervals)
+        val (minute, mostTimesAsleep) = sleepingMap.maxBy { (_, sleeping) -> sleeping }!!
+        guard to SleepEntry(minute, mostTimesAsleep)
+    }
+    val (guard, sleepEntry) = guardMap.maxBy {(_, sleepEntry) -> sleepEntry.timesAsleep }!!
+    guard * sleepEntry.minute
+}
 
 fun findMinuteMostLikelyAsleep(sleepingIntervals: List<SleepingInterval>): Int {
-    val minutesMap = mutableMapOf<Int, Int>()
+    val minutesMap = createSleepFrequencyMap(sleepingIntervals)
+    return minutesMap.maxBy { (_, sleeping) -> sleeping }!!.key
+}
+
+private fun createSleepFrequencyMap(sleepingIntervals: List<SleepingInterval>) = mutableMapOf<Int, Int>().apply() {
     sleepingIntervals.map { (from, to) ->
-        (from .. to).forEach {
-            val sleep = minutesMap[it]
-            minutesMap[it] = (sleep ?: 0) + 1
+        (from..to).forEach {
+            val sleep = this[it]
+            this[it] = (sleep ?: 0) + 1
         }
     }
-    return minutesMap.maxBy { (_, sleeping) -> sleeping }!!.key
 }
 
 fun findMostAsleep(sleepingIntervalsPerGuard: Map<Int, List<SleepingInterval>>) = sumSleepingTimes(sleepingIntervalsPerGuard).entries.maxBy { (_, sleepingTime) ->  sleepingTime}!!.key
@@ -172,6 +195,26 @@ data class TimeStamp(val year: Int, val month: Int, val day: Int, val hour: Int,
 
 class Day04Spec : Spek({
 
+    val exampleInput = """
+                    [1518-11-01 00:00] Guard #10 begins shift
+                    [1518-11-01 00:05] falls asleep
+                    [1518-11-01 00:25] wakes up
+                    [1518-11-01 00:30] falls asleep
+                    [1518-11-01 00:55] wakes up
+                    [1518-11-01 23:58] Guard #99 begins shift
+                    [1518-11-02 00:40] falls asleep
+                    [1518-11-02 00:50] wakes up
+                    [1518-11-03 00:05] Guard #10 begins shift
+                    [1518-11-03 00:24] falls asleep
+                    [1518-11-03 00:29] wakes up
+                    [1518-11-04 00:02] Guard #99 begins shift
+                    [1518-11-04 00:36] falls asleep
+                    [1518-11-04 00:46] wakes up
+                    [1518-11-05 00:03] Guard #99 begins shift
+                    [1518-11-05 00:45] falls asleep
+                    [1518-11-05 00:55] wakes up
+                """.trimIndent()
+
     describe("part 1") {
         given("some guards event as input") {
                 val input = """
@@ -194,25 +237,6 @@ class Day04Spec : Spek({
             }
         }
         given("example input") {
-            val exampleInput = """
-                    [1518-11-01 00:00] Guard #10 begins shift
-                    [1518-11-01 00:05] falls asleep
-                    [1518-11-01 00:25] wakes up
-                    [1518-11-01 00:30] falls asleep
-                    [1518-11-01 00:55] wakes up
-                    [1518-11-01 23:58] Guard #99 begins shift
-                    [1518-11-02 00:40] falls asleep
-                    [1518-11-02 00:50] wakes up
-                    [1518-11-03 00:05] Guard #10 begins shift
-                    [1518-11-03 00:24] falls asleep
-                    [1518-11-03 00:29] wakes up
-                    [1518-11-04 00:02] Guard #99 begins shift
-                    [1518-11-04 00:36] falls asleep
-                    [1518-11-04 00:46] wakes up
-                    [1518-11-05 00:03] Guard #99 begins shift
-                    [1518-11-05 00:45] falls asleep
-                    [1518-11-05 00:55] wakes up
-                """.trimIndent()
             val inputEvents = parseGuardRecords(exampleInput)
             it("should find intervals") {
                 detectIntervals(inputEvents) `should equal` mapOf(
@@ -240,6 +264,17 @@ class Day04Spec : Spek({
             val exerciseInput = readResource("day04Input.txt")
             guardStrategy1(exerciseInput) `should equal` 60438
         }
-
+    }
+    describe("part 2") {
+        given("example input") {
+            it("should find solution for strategy 2") {
+                guardStrategy2(exampleInput) `should equal` 4455
+            }
+        }
+        given("exercise input") {
+            val exerciseInput = readResource("day04Input.txt")
+            guardStrategy2(exerciseInput) `should equal` 47989
+        }
     }
 })
+
