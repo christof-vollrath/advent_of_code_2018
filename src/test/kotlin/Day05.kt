@@ -76,7 +76,7 @@ fun singleReaction(s: String): String {
     else result).joinToString("")
 }
 
-fun repeatReactions(s: String): String {
+tailrec fun repeatReactions(s: String): String {
     val result = singleReaction(s)
     return if (result.length == s.length) result
     else repeatReactions(result)
