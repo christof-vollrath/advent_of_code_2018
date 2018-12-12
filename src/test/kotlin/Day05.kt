@@ -39,6 +39,27 @@ After all possible reactions, the resulting polymer contains 10 units.
 
 How many units remain after fully reacting the polymer you scanned?
 
+--- Part Two ---
+
+Time to improve the polymer.
+
+One of the unit types is causing problems; it's preventing the polymer from collapsing as much as it should.
+Your goal is to figure out which unit type is causing the most problems,
+remove all instances of it (regardless of polarity),
+fully react the remaining polymer, and measure its length.
+
+For example, again using the polymer dabAcCaCBAcCcaDA from above:
+
+Removing all A/a units produces dbcCCBcCcD. Fully reacting this polymer produces dbCBcD, which has length 6.
+Removing all B/b units produces daAcCaCAcCcaDA. Fully reacting this polymer produces daCAcaDA, which has length 8.
+Removing all C/c units produces dabAaBAaDA. Fully reacting this polymer produces daDA, which has length 4.
+Removing all D/d units produces abAcCaCBAcCcaA. Fully reacting this polymer produces abCBAc, which has length 6.
+
+In this example, removing all C/c units was best, producing the answer 4.
+
+What is the length of the shortest polymer you can produce by removing all units
+of exactly one type and fully reacting the result?
+
  */
 
 fun singleReaction(s: String): String {
@@ -61,8 +82,23 @@ fun repeatReactions(s: String): String {
     else repeatReactions(result)
 }
 
+fun findBestCorrection(s: String): Pair<Char, String> {
+    val letters = getAllLetters(s)
+    val allCorrections = letters.map {
+        it to repeatReactions(removeLetter(s, it))
+    }
+    return allCorrections.minBy { (_, s) ->
+        s.length
+    }!!
+}
+
+fun removeLetter(s: String, c: Char) = s.filter { it.toLowerCase() != c}
+
+fun getAllLetters(s: String) = s.map { it.toLowerCase() }.toSet().toList().sorted()
+
 class Day05Spec : Spek({
 
+    val exerciseInput = readResource("day05Input.txt")
     describe("part 1") {
         given("example cases") {
             describe("singleReaction") {
@@ -91,11 +127,30 @@ class Day05Spec : Spek({
                 }
             }
         }
-        given("exercise input") {
-            val exerciseInput = readResource("day05Input.txt")
+        it("should solve part 1") {
             val result = repeatReactions(exerciseInput)
             result.length `should equal` 10804
         }
 
+    }
+    describe("part 2") {
+        given("larger example part 2") {
+            val example = "dabAcCaCBAcCcaDA"
+            it("getAllLetters") {
+                getAllLetters(example) `should equal` "abcd".toList()
+            }
+            it("removeLetter") {
+                removeLetter(example, 'a') `should equal` "dbcCCBcCcD"
+            }
+            it("findBestCorrection") {
+                val result = findBestCorrection(example)
+                result `should equal` ('c' to "daDA")
+                result.second.length `should equal` 4
+            }
+        }
+        it("should solve part 2") {
+            val result = findBestCorrection(exerciseInput).second
+            result.length `should equal` 6650
+        }
     }
 })
