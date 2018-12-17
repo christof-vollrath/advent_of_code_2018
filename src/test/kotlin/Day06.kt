@@ -119,12 +119,12 @@ class Day06Spec : Spek({
                     5, 5
                     8, 9
                 """.trimIndent()
+            val input = parseCoordinates(exampleInput)
+            val chronalMap = chronalMap(input)
 
             describe("initialize map and print it") {
-                val input = parseCoordinates(exampleInput)
-                val map = chronalMap(input)
 
-                map.toChronalString() `should equal` """
+                chronalMap.toChronalString() `should equal` """
                         ..........
                         .A........
                         ..........
@@ -140,9 +140,7 @@ class Day06Spec : Spek({
                     """.trimIndent()
             }
             describe("find closest coordinates and print it") {
-                val input = parseCoordinates(exampleInput)
-                val map = chronalMap(input)
-                val closestMap = map.findClosest(input)
+                val closestMap = chronalMap.findClosest(input)
 
                 closestMap.toChronalString() `should equal` """
                         aaaaa.cccc
@@ -159,11 +157,29 @@ class Day06Spec : Spek({
 
                     """.trimIndent()
             }
+            describe("find infinite areas") {
+                val closestMap = chronalMap.findClosest(input)
+
+                findInfiniteAreas(closestMap) `should equal` setOf(1, 2, 3, 6)
+            }
+            describe("count finite areas") {
+                val closestMap = chronalMap.findClosest(input)
+
+                countFiniteAreas(closestMap) `should equal` mapOf(4 to 9, 5 to 17)
+            }
+            describe("example result") {
+                val closestMap = chronalMap.findClosest(input)
+
+                countFiniteAreas(closestMap).values.max() `should equal` 17
+            }
+
         }
         given("exercise") {
             val exerciseInput = readResource("day06Input.txt")
-
-
+            val input = parseCoordinates(exerciseInput)
+            val chronalMap = chronalMap(input)
+            val closestMap = chronalMap.findClosest(input)
+            countFiniteAreas(closestMap).values.max() `should equal` 3449
         }
     }
     describe("part 2") {
@@ -171,6 +187,28 @@ class Day06Spec : Spek({
     }
 
 })
+
+fun countFiniteAreas(closestMap: ChronalMap): Map<Int, Int> {
+    val infiniteAreas = findInfiniteAreas(closestMap)
+    val result = mutableMapOf<Int, Int>()
+    closestMap.forEach { line ->
+        line.forEach { v ->
+            if (v != null) {
+                val absValue = abs(v)
+                if (absValue !in infiniteAreas) result[absValue] = (result[absValue]?:0) + 1
+            }
+        }
+    }
+    return result
+}
+
+fun findInfiniteAreas(closestMap: ChronalMap) = closestMap.mapIndexed { y, line ->
+    when {
+        y == 0 -> line
+        y == closestMap.size -1 -> line
+        else -> listOf(line.first(), line.last())
+    }
+}.flatten().mapNotNull { if (it == null) null else abs(it) }.toSet()
 
 private fun <T, R : Comparable<R>> Collection<T>.minSetBy(selector: (T) -> R): Set<T> {
     var result = mutableSetOf<T>()
@@ -200,8 +238,8 @@ private fun ChronalMap.findClosest(input: List<Pair<Int, Int>>): ChronalMap {
             val v = inputMap[x to y]
             if (v != null) v
             else {
-                val closests = inputMap.entries.minSetBy { (coord, i) -> manhattanDistance(coord, x to y) }
-                if (closests.size == 1) -(closests.first()!!.value)
+                val closests = inputMap.entries.minSetBy { (coord, _) -> manhattanDistance(coord, x to y) }
+                if (closests.size == 1) -(closests.first().value)
                 else null
             }
         }
@@ -226,7 +264,7 @@ fun chronalMap(input: List<Pair<Int, Int>>): ChronalMap {
 
 fun List<Pair<Int, Int>>.mapCoordinates() = mapIndexed { index, pair -> pair to index + 1 }.toMap()
 
-fun List<Pair<Int, Int>>.findClosest(coord1: Pair<Int, Int>) = withIndex().minBy { (i, coord2) -> manhattanDistance(coord1, coord2)}!!.index
+fun List<Pair<Int, Int>>.findClosest(coord1: Pair<Int, Int>) = withIndex().minBy { (_, coord2) -> manhattanDistance(coord1, coord2)}!!.index
 
 fun ChronalMap.toChronalString() = map { line->
     line.map {
