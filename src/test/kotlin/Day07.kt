@@ -86,7 +86,7 @@ class Day07Spec : Spek({
                 val f = Step('F', mutableSetOf('E'))
 
                 val instructions = parseInstructions(input)
-                instructions.start `should equal` c
+                instructions.start `should equal` listOf(c)
                 instructions.stepMap `should equal` mapOf (
                             'A' to a,
                             'B' to b,
@@ -95,6 +95,7 @@ class Day07Spec : Spek({
                             'E' to e,
                             'F' to f
                         )
+                instructions.allOutGoing-instructions.allInGoing `should equal` setOf('C')
             }
             it("should traverse steps correctly") {
                 traverseSteps(parseInstructions(input)).joinToString("") `should equal` "CABDFE"
@@ -103,22 +104,27 @@ class Day07Spec : Spek({
         given("exercise") {
             val exerciseInput = readResource("day07Input.txt")
             val input = parseInstructions(exerciseInput)
+            println("allInGoing=${input.allInGoing} allOutGoing=${input.allOutGoing} allOutGoing-allInGoing=${input.allOutGoing-input.allInGoing}")
             traverseSteps(input).joinToString("") `should equal` "CABDFE"
         }
-
     }
 })
 
-fun traverseSteps(instructions: Instructions): List<Char> = traverseSteps(instructions, instructions.start, mutableSetOf())
+fun traverseSteps(instructions: Instructions): List<Char> {
+    val alreadyVisited = mutableSetOf<Char>()
+    return instructions.start.flatMap {
+        traverseSteps(instructions, it, alreadyVisited)
+    }
+}
 
-fun traverseSteps(instructions: Instructions, step: Step?, alreadyVisited: MutableSet<Char>): List<Char> {
-    println("traverseSteps id=${step?.id} alreadyVisited=${alreadyVisited}")
-    if (step == null || step.id in alreadyVisited) return emptyList()
+fun traverseSteps(instructions: Instructions, step: Step, alreadyVisited: MutableSet<Char>): List<Char> {
+    println("traverseSteps id=${step.id} alreadyVisited=${alreadyVisited}")
+    if (step.id in alreadyVisited) return emptyList()
     if (! step.inGoing.all { it in alreadyVisited}) return emptyList() // Not yet executable
     val sortedOutgoing = step.outGoing.sortedBy { it }
+    alreadyVisited.add(step.id)
     return listOf(step.id) + sortedOutgoing.flatMap { stepId ->
-        alreadyVisited.add(step.id)
-        traverseSteps(instructions, instructions.stepMap[stepId], alreadyVisited)
+        traverseSteps(instructions, instructions.stepMap[stepId]!!, alreadyVisited)
     }
 }
 
@@ -137,10 +143,11 @@ fun parseInstructions(input: String): Instructions {
 
 class Instructions {
     val stepMap = mutableMapOf<Char, Step>()
-    val start: Step
-        get() = stepMap[startCandidates.first()]!!
+    val start: List<Step>
+        get() = (allOutGoing-allInGoing).mapNotNull { stepMap[it] }.sortedBy { it.id }
 
-    private val startCandidates = mutableSetOf<Char>()
+    val allInGoing = mutableSetOf<Char>()
+    val allOutGoing = mutableSetOf<Char>()
 
     private fun getOrCreate(map: MutableMap<Char, Step>, c: Char) = map[c]?: run {
         val newStep = Step(c)
@@ -153,11 +160,12 @@ class Instructions {
         val toStep = getOrCreate(stepMap, to)
         fromStep.outGoing.add(toStep.id)
         toStep.inGoing.add(fromStep.id)
-        startCandidates.add(fromStep.id)
-        startCandidates.remove(toStep.id)
+        allOutGoing.add(fromStep.id)
+        allInGoing.add(toStep.id)
     }
 }
 
 data class Step(val id: Char, val outGoing: MutableSet<Char> = mutableSetOf()) {
     val inGoing: MutableSet<Char> = mutableSetOf()
 }
+
