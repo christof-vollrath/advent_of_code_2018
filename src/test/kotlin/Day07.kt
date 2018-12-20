@@ -64,6 +64,59 @@ In what order should the steps in your instructions be completed?
 
  */
 
+class Instructions {
+    val stepMap = mutableMapOf<Char, Step>()
+    val start: List<Step>
+        get() = (allOutGoing-allInGoing).mapNotNull { stepMap[it] }
+
+    val allInGoing = mutableSetOf<Char>()
+    val allOutGoing = mutableSetOf<Char>()
+
+    fun add(from: Char, to: Char) {
+        val fromStep = stepMap.getOrPut(from) { Step(from) }
+        val toStep = stepMap.getOrPut(to) { Step(to) }
+        fromStep.outGoing.add(toStep.id)
+        toStep.inGoing.add(fromStep.id)
+        allOutGoing.add(fromStep.id)
+        allInGoing.add(toStep.id)
+    }
+}
+
+data class Step(val id: Char, val outGoing: MutableSet<Char> = mutableSetOf()) {
+    val inGoing: MutableSet<Char> = mutableSetOf()
+}
+
+
+fun traverseSteps(instructions: Instructions): List<Char> = traverseSteps(instructions, instructions.start, emptyList())
+
+tailrec fun traverseSteps(instructions: Instructions, steps: List<Step>, alreadyVisited: List<Char>): List<Char> {
+    val sorted = steps.sortedBy { it.id }
+    val executableStep = sorted.firstOrNull { step ->
+        step.inGoing.all { it in alreadyVisited }
+    }
+    val next = steps.flatMap { step ->
+        if (step == executableStep)
+            executableStep.outGoing.mapNotNull { instructions.stepMap[it] }
+        else listOf(step)
+    }.distinctBy { it.id }
+    return if (executableStep == null) alreadyVisited
+    else {
+        traverseSteps(instructions, next, alreadyVisited + executableStep.id)
+    }
+}
+
+fun parseInstructions(input: String): Instructions {
+    val result = Instructions()
+    input.split("\n").forEach { line ->
+        val  regex = """Step (\p{Lu}) must be finished before step (\p{Lu}) can begin.""".toRegex()
+        val match = regex.find(line) ?: throw IllegalArgumentException("Can not parse line=$line")
+        if (match.groupValues.size != 3) throw IllegalArgumentException("Not all elements parsed")
+        val values = match.groupValues
+        result.add(values[1][0], values[2][0])
+    }
+    return result
+}
+
 class Day07Spec : Spek({
 
     describe("part 1") {
@@ -123,62 +176,3 @@ class Day07Spec : Spek({
         }
     }
 })
-
-fun traverseSteps(instructions: Instructions): List<Char> = traverseSteps(instructions, instructions.start, mutableListOf())
-
-tailrec fun traverseSteps(instructions: Instructions, steps: List<Step>, alreadyVisited: MutableList<Char>): List<Char> {
-    val sorted = steps.sortedBy { it.id }
-    val executableStep = sorted.firstOrNull { step ->
-        step.inGoing.all { it in alreadyVisited }
-    }
-    val next = steps.flatMap { step ->
-        if (step == executableStep)
-            executableStep.outGoing.mapNotNull { instructions.stepMap[it] }
-        else listOf(step)
-    }.distinctBy { it.id }
-    if (executableStep != null) alreadyVisited.add(executableStep.id)
-    return if (executableStep == null) alreadyVisited
-    else traverseSteps(instructions, next, alreadyVisited)
-}
-
-fun parseInstructions(input: String): Instructions {
-
-    val result = Instructions()
-    input.split("\n").forEach { line ->
-        val  regex = """Step (\p{Lu}) must be finished before step (\p{Lu}) can begin.""".toRegex()
-        val match = regex.find(line) ?: throw IllegalArgumentException("Can not parse line=$line")
-        if (match.groupValues.size != 3) throw IllegalArgumentException("Not all elements parsed")
-        val values = match.groupValues
-        result.add(values[1][0], values[2][0])
-    }
-    return result
-}
-
-class Instructions {
-    val stepMap = mutableMapOf<Char, Step>()
-    val start: List<Step>
-        get() = (allOutGoing-allInGoing).mapNotNull { stepMap[it] }.sortedBy { it.id }
-
-    val allInGoing = mutableSetOf<Char>()
-    val allOutGoing = mutableSetOf<Char>()
-
-    private fun getOrCreate(map: MutableMap<Char, Step>, c: Char) = map[c]?: run {
-        val newStep = Step(c)
-        map[c] = newStep
-        newStep
-    }
-
-    fun add(from: Char, to: Char) {
-        val fromStep = getOrCreate(stepMap, from)
-        val toStep = getOrCreate(stepMap, to)
-        fromStep.outGoing.add(toStep.id)
-        toStep.inGoing.add(fromStep.id)
-        allOutGoing.add(fromStep.id)
-        allInGoing.add(toStep.id)
-    }
-}
-
-data class Step(val id: Char, val outGoing: MutableSet<Char> = mutableSetOf()) {
-    val inGoing: MutableSet<Char> = mutableSetOf()
-}
-
