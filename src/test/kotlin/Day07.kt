@@ -128,7 +128,7 @@ fun traverseSteps(instructions: Instructions): List<Char> = traverseSteps(instru
 
 tailrec fun traverseSteps(instructions: Instructions, steps: List<Step>, alreadyVisited: MutableList<Char>): List<Char> {
     val sorted = steps.sortedBy { it.id }
-    val executableStep = sorted.firstOrNull() {step ->
+    val executableStep = sorted.firstOrNull { step ->
         step.inGoing.all { it in alreadyVisited }
     }
     val next = steps.flatMap { step ->

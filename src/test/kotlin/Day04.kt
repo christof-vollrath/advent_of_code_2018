@@ -115,7 +115,7 @@ fun findMinuteMostLikelyAsleep(sleepingIntervals: List<SleepingInterval>): Int {
     return minutesMap.maxBy { (_, sleeping) -> sleeping }!!.key
 }
 
-private fun createSleepFrequencyMap(sleepingIntervals: List<SleepingInterval>) = mutableMapOf<Int, Int>().apply() {
+private fun createSleepFrequencyMap(sleepingIntervals: List<SleepingInterval>) = mutableMapOf<Int, Int>().apply {
     sleepingIntervals.map { (from, to) ->
         (from..to).forEach {
             val sleep = this[it]
@@ -132,14 +132,13 @@ fun sumSleepingTimes(sleepingIntervalsPerGuard: Map<Int, List<SleepingInterval>>
 
 fun detectIntervals(inputEvents: List<GuardEvent>): Map<Int, List<SleepingInterval>> {
     var currentGuard: Int? = null
-    var sleepingStarted: Int = 0
+    var sleepingStarted = 0
     return inputEvents.mapNotNull {
         when(it) {
             is BeginsShift -> { currentGuard = it.guardNr; null }
             is FallsAsleep -> { sleepingStarted = it.timeStamp.minute; null }
             is WakesUp -> {
-                val guard = currentGuard
-                if (guard == null) throw IllegalArgumentException("No guard to wake up")
+                val guard = currentGuard ?: throw IllegalArgumentException("No guard to wake up")
                 guard to SleepingInterval(sleepingStarted, it.timeStamp.minute - 1)
             }
 
@@ -154,7 +153,7 @@ fun parseGuardRecords(input: String) = input.split("\n")
         .sortedBy { it.timeStamp }
 
 fun parseGuardRecord(input: String): GuardEvent {
-    val  regex = """\[(\d+)-(\d+)-(\d+) (\d+):(\d+)\]\s*(.*)""".toRegex()
+    val  regex = """\[(\d+)-(\d+)-(\d+) (\d+):(\d+)]\s*(.*)""".toRegex()
     val match = regex.find(input) ?: throw IllegalArgumentException("Can not parse input $input")
     if (match.groupValues.size != 7) throw IllegalArgumentException("Only ${match.groupValues.size} elements parsed $input")
     val values = match.groupValues

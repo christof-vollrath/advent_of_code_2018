@@ -143,9 +143,9 @@ fun countFiniteAreas(closestMap: ChronalMap): Map<Int, Int> {
 }
 
 fun findInfiniteAreas(closestMap: ChronalMap) = closestMap.mapIndexed { y, line ->
-    when {
-        y == 0 -> line
-        y == closestMap.size -1 -> line
+    when (y) {
+        0 -> line
+        closestMap.size -1 -> line
         else -> listOf(line.first(), line.last())
     }
 }.flatten().mapNotNull { if (it == null) null else abs(it) }.toSet()
@@ -173,18 +173,17 @@ private fun <T, R : Comparable<R>> Collection<T>.minSetBy(selector: (T) -> R): S
 
 private fun ChronalMap.findClosest(input: List<Pair<Int, Int>>): ChronalMap {
     val inputMap = input.mapCoordinates()
-    val result = mapIndexed { y, line ->
-        line.mapIndexed { x, _ ->
-            val v = inputMap[x to y]
-            if (v != null) v
-            else {
-                val closests = inputMap.entries.minSetBy { (coord, _) -> manhattanDistance(coord, x to y) }
-                if (closests.size == 1) -(closests.first().value)
-                else null
+    return mapIndexed { y, line ->
+            line.mapIndexed { x, _ ->
+                val v = inputMap[x to y]
+                if (v != null) v
+                else {
+                    val closests = inputMap.entries.minSetBy { (coord, _) -> manhattanDistance(coord, x to y) }
+                    if (closests.size == 1) -(closests.first().value)
+                    else null
+                }
             }
         }
-    }
-    return result
 }
 
 typealias ChronalMap = List<List<Int?>>
@@ -204,9 +203,7 @@ fun chronalMap(input: List<Pair<Int, Int>>): ChronalMap {
 
 fun List<Pair<Int, Int>>.mapCoordinates() = mapIndexed { index, pair -> pair to index + 1 }.toMap()
 
-fun List<Pair<Int, Int>>.findClosest(coord1: Pair<Int, Int>) = withIndex().minBy { (_, coord2) -> manhattanDistance(coord1, coord2)}!!.index
-
-fun ChronalMap.toChronalString() = map { line->
+fun ChronalMap.toChronalString() = joinToString("") { line->
     line.map {
         if (it == null) '.'
         else {
@@ -214,7 +211,7 @@ fun ChronalMap.toChronalString() = map { line->
             else 'A' + it.rem(26) - 1
         }
     }.joinToString("") + '\n'
-}.joinToString("")
+}
 
 
 
