@@ -101,31 +101,44 @@ class Day07Spec : Spek({
                 traverseSteps(parseInstructions(input)).joinToString("") `should equal` "CABDFE"
             }
         }
+        given("example extended with one two starting nodes") {
+            val input = """Step C must be finished before step A can begin.
+                    Step C must be finished before step F can begin.
+                    Step A must be finished before step B can begin.
+                    Step A must be finished before step D can begin.
+                    Step B must be finished before step E can begin.
+                    Step D must be finished before step E can begin.
+                    Step F must be finished before step E can begin.
+                    Step X must be finished before step E can begin.
+                """.trimIndent()
+
+            it("should traverse steps correctly") {
+                traverseSteps(parseInstructions(input)).joinToString("") `should equal` "CABDFXE"
+            }
+        }
         given("exercise") {
             val exerciseInput = readResource("day07Input.txt")
             val input = parseInstructions(exerciseInput)
-            println("allInGoing=${input.allInGoing} allOutGoing=${input.allOutGoing} allOutGoing-allInGoing=${input.allOutGoing-input.allInGoing}")
-            traverseSteps(input).joinToString("") `should equal` "CABDFE"
+            traverseSteps(input).joinToString("") `should equal` "BCADPVTJFZNRWXHEKSQLUYGMIO"
         }
     }
 })
 
-fun traverseSteps(instructions: Instructions): List<Char> {
-    val alreadyVisited = mutableSetOf<Char>()
-    return instructions.start.flatMap {
-        traverseSteps(instructions, it, alreadyVisited)
-    }
-}
+fun traverseSteps(instructions: Instructions): List<Char> = traverseSteps(instructions, instructions.start, mutableListOf())
 
-fun traverseSteps(instructions: Instructions, step: Step, alreadyVisited: MutableSet<Char>): List<Char> {
-    println("traverseSteps id=${step.id} alreadyVisited=${alreadyVisited}")
-    if (step.id in alreadyVisited) return emptyList()
-    if (! step.inGoing.all { it in alreadyVisited}) return emptyList() // Not yet executable
-    val sortedOutgoing = step.outGoing.sortedBy { it }
-    alreadyVisited.add(step.id)
-    return listOf(step.id) + sortedOutgoing.flatMap { stepId ->
-        traverseSteps(instructions, instructions.stepMap[stepId]!!, alreadyVisited)
+tailrec fun traverseSteps(instructions: Instructions, steps: List<Step>, alreadyVisited: MutableList<Char>): List<Char> {
+    val sorted = steps.sortedBy { it.id }
+    val executableStep = sorted.firstOrNull() {step ->
+        step.inGoing.all { it in alreadyVisited }
     }
+    val next = steps.flatMap { step ->
+        if (step == executableStep)
+            executableStep.outGoing.mapNotNull { instructions.stepMap[it] }
+        else listOf(step)
+    }.distinctBy { it.id }
+    if (executableStep != null) alreadyVisited.add(executableStep.id)
+    return if (executableStep == null) alreadyVisited
+    else traverseSteps(instructions, next, alreadyVisited)
 }
 
 fun parseInstructions(input: String): Instructions {
