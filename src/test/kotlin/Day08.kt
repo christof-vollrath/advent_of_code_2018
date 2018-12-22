@@ -1,3 +1,9 @@
+import org.amshove.kluent.`should equal`
+import org.jetbrains.spek.api.Spek
+import org.jetbrains.spek.api.dsl.describe
+import org.jetbrains.spek.api.dsl.given
+import org.jetbrains.spek.api.dsl.it
+
 /*
 --- Day 8: Memory Maneuver ---
 
@@ -45,3 +51,53 @@ In this example, that sum is 1+1+2+10+11+12+2+99=138.
 What is the sum of all metadata entries?
 
  */
+
+fun parseLicenseTree(input: String): LicenseNode = parseLicenseTree(input.split(" ").map { it.trim().toInt() })
+fun parseLicenseTree(input: List<Int>): LicenseNode = parseLicenseTree(IntsWithPos(input))
+fun parseLicenseTree(intsWithPos: IntsWithPos): LicenseNode {
+    val nrSubNodes = intsWithPos.getAndIncrPos()
+    val nrMetadata = intsWithPos.getAndIncrPos()
+    val subNodes = (1..nrSubNodes).map { parseLicenseTree(intsWithPos)}
+    val metadata = (1..nrMetadata).map { intsWithPos.getAndIncrPos()}
+    return LicenseNode(metadata, subNodes)
+}
+
+class IntsWithPos(val list: List<Int>, private var pos: Int = 0) {
+    fun getAndIncrPos() = list[pos].also { pos++ }
+}
+
+
+data class LicenseNode(val metadata: List<Int>, val subNodes: List<LicenseNode> = emptyList()) {
+    fun sumMetadata(): Int = metadata.sum() + subNodes.map { it.sumMetadata() }.sum()
+}
+
+class Day08Spec : Spek({
+
+    describe("part 1") {
+        given("example") {
+            val input = "2 3 0 3 10 11 12 1 1 0 1 99 2 1 1 2"
+
+            it("should parse license input") {
+                val licenseTree = parseLicenseTree(input)
+                licenseTree `should equal` LicenseNode(listOf(1, 1, 2), listOf(
+                        LicenseNode(listOf(10, 11, 12)),
+                        LicenseNode(listOf(2), listOf(
+                                LicenseNode(listOf(99))
+                            )
+                        )
+                    )
+                )
+            }
+            it("should calculate sum of metadata") {
+                val sum = parseLicenseTree(input).sumMetadata()
+                sum `should equal` 138
+            }
+        }
+        given("exercise") {
+            val exerciseInput = readResource("day08Input.txt")
+            val sum = parseLicenseTree(exerciseInput).sumMetadata()
+            sum `should equal` 138
+        }
+
+    }
+})
