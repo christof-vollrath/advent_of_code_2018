@@ -3,6 +3,7 @@ import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.it
 import org.jetbrains.spek.data_driven.data
+import java.util.*
 import org.jetbrains.spek.data_driven.on as onData
 
 /*
@@ -91,10 +92,10 @@ class Day09Spec : Spek({
             val testData = arrayOf(
                     data(0, ElvesPlayState(mutableListOf(0), 0)),
                     data(1, ElvesPlayState(mutableListOf(0, 1), 1, 1)),
-                    data(2, ElvesPlayState(mutableListOf(0, 2, 1), 1, 2)),
+                    data(2, ElvesPlayState(mutableListOf(0, 2, 1), 2, 2)),
                     data(3, ElvesPlayState(mutableListOf(0, 2, 1, 3), 3, 3)),
-                    data(22, ElvesPlayState(mutableListOf(0, 16, 8, 17, 4, 18, 9, 19, 2, 20, 10, 21, 5, 22, 11, 1, 12, 6, 13, 3, 14, 7, 15), 13, 4)),
-                    data(23, ElvesPlayState(mutableListOf(0, 16, 8, 17, 4, 18, 19, 2, 20, 10, 21, 5, 22, 11, 1, 12, 6, 13, 3, 14, 7, 15), 6, 5, mutableMapOf(5 to 32)))
+                    data(22, ElvesPlayState(mutableListOf(0, 16, 8, 17, 4, 18, 9, 19, 2, 20, 10, 21, 5, 22, 11, 1, 12, 6, 13, 3, 14, 7, 15), 22, 4)),
+                    data(23, ElvesPlayState(mutableListOf(0, 16, 8, 17, 4, 18, 19, 2, 20, 10, 21, 5, 22, 11, 1, 12, 6, 13, 3, 14, 7, 15), 19, 5, mutableMapOf(5 to 32)))
             )
             onData("play step %s", with = *testData) { nr, state ->
                 val result = elvesPlay(nr, 9)
@@ -119,34 +120,93 @@ class Day09Spec : Spek({
             }
         }
         describe("exercise") {
-            val result = elvesPlay(71184, 435).playersMap.values.max()
-            result `should equal` 412959
+            it("should calculate result") {
+                val result = elvesPlay(71184, 435).playersMap.values.max()
+                result `should equal` 412959
+            }
         }
     }
 })
 
-fun elvesPlay(nr: Int, players: Int): ElvesPlayState = ElvesPlayState(mutableListOf(0), 0).also { state ->
+fun elvesPlay(nr: Int, players: Int): ElvesPlayState {
+    var current = MarbleList(0)
+    val state = ElvesPlayState(current, 0)
     for (i in 1..nr) {
         state.currentPlayer = (state.currentPlayer ?: 0) % players + 1
         if (i % 23 == 0) {
-            val removePos = with(state.currentMarble - 7) {
-                if (this > 0) this
-                else state.marbles.size - 7 + state.currentMarble
+            repeat(7) {
+                current = current.prev
             }
-            state.apply {
-                val removedMarble = marbles[removePos]
-                marbles.removeAt(removePos)
-                currentMarble = removePos
-                playersMap[currentPlayer!!] = playersMap.getOrDefault(currentPlayer!!, 0) + i + removedMarble
+            val removed = current
+            current = current.remove()
+            with(state) {
+                playersMap[currentPlayer!!] = playersMap.getOrDefault(currentPlayer!!, 0) + i + removed.id
             }
         } else {
-            val insertPos = (state.currentMarble + 1) % state.marbles.size + 1
-            state.apply {
-                marbles.add(insertPos, i)
-                currentMarble = insertPos
-            }
+            val insert = current.next
+            current = insert.add(MarbleList(i))
         }
     }
+    state.currentMarble = current.id
+    return state
 }
 
-data class ElvesPlayState(val marbles: MutableList<Int>, var currentMarble: Int, var currentPlayer: Int? = null, val playersMap: MutableMap<Int, Int> = mutableMapOf())
+data class ElvesPlayState(var marbles: MarbleList, var currentMarble: Int, var currentPlayer: Int? = null, val playersMap: MutableMap<Int, Int> = mutableMapOf()) {
+    constructor(marbles: MutableList<Int>, currentMarble: Int, currentPlayer: Int? = null, playersMap: MutableMap<Int, Int> = mutableMapOf()):
+            this(marbles.drop(1).fold(MarbleList(marbles.first())) { collector, element ->
+                val list = MarbleList(element)
+                collector.add(list)
+                list
+            }, currentMarble, currentPlayer, playersMap)
+}
+
+
+class MarbleList(val id: Int) {
+    var next: MarbleList
+    var prev: MarbleList
+    init {
+        next = this
+        prev = this
+    }
+    fun add(e: MarbleList): MarbleList {
+        next.prev = e
+        e.next = next
+        next = e
+        e.prev = this
+        return e
+    }
+    fun remove(): MarbleList {
+        prev.next = next
+        next.prev = prev
+        return next
+    }
+    fun toList(): List<Int> {
+        var start = this
+        while(start.id != 0) start = start.next
+        val result = LinkedList<Int>()
+        result.add(start.id)
+        while(true) {
+            start = start.next
+            if(start.id == 0) break
+            result.add(start.id)
+        }
+        return result
+    }
+
+    override fun toString(): String = toList().toString()
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as MarbleList
+
+        if (toList() != other.toList()) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        return id
+    }
+}
