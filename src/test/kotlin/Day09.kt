@@ -90,15 +90,15 @@ class Day09Spec : Spek({
     describe("part 1") {
         describe("play examples") {
             val testData = arrayOf(
-                    data(0, ElvesPlayState(mutableListOf(0), 0)),
-                    data(1, ElvesPlayState(mutableListOf(0, 1), 1, 1)),
-                    data(2, ElvesPlayState(mutableListOf(0, 2, 1), 2, 2)),
-                    data(3, ElvesPlayState(mutableListOf(0, 2, 1, 3), 3, 3)),
-                    data(22, ElvesPlayState(mutableListOf(0, 16, 8, 17, 4, 18, 9, 19, 2, 20, 10, 21, 5, 22, 11, 1, 12, 6, 13, 3, 14, 7, 15), 22, 4)),
-                    data(23, ElvesPlayState(mutableListOf(0, 16, 8, 17, 4, 18, 19, 2, 20, 10, 21, 5, 22, 11, 1, 12, 6, 13, 3, 14, 7, 15), 19, 5, mutableMapOf(5 to 32)))
+                    data(0, ElvesPlayState(mutableListOf(0), 0L)),
+                    data(1, ElvesPlayState(mutableListOf(0, 1), 1L, 1)),
+                    data(2, ElvesPlayState(mutableListOf(0, 2, 1), 2L, 2)),
+                    data(3, ElvesPlayState(mutableListOf(0, 2, 1, 3), 3L, 3)),
+                    data(22, ElvesPlayState(mutableListOf(0, 16, 8, 17, 4, 18, 9, 19, 2, 20, 10, 21, 5, 22, 11, 1, 12, 6, 13, 3, 14, 7, 15), 22L, 4)),
+                    data(23, ElvesPlayState(mutableListOf(0, 16, 8, 17, 4, 18, 19, 2, 20, 10, 21, 5, 22, 11, 1, 12, 6, 13, 3, 14, 7, 15), 19L, 5, mutableMapOf(5 to 32L)))
             )
             onData("play step %s", with = *testData) { nr, state ->
-                val result = elvesPlay(nr, 9)
+                val result = elvesPlay(nr.toLong(), 9)
                 it("returns $state") {
                     result `should equal` state
                 }
@@ -113,9 +113,9 @@ class Day09Spec : Spek({
                     data(30, 5807, 37305)
             )
             onData("play %s", with = *testData) { nrPlayers, nrMarbles, highScore ->
-                val result = elvesPlay(nrMarbles, nrPlayers).playersMap.values.max()
+                val result = elvesPlay(nrMarbles.toLong(), nrPlayers).playersMap.values.max()
                 it("returns $highScore") {
-                    result `should equal` highScore
+                    result `should equal` highScore.toLong()
                 }
             }
         }
@@ -126,14 +126,22 @@ class Day09Spec : Spek({
             }
         }
     }
+    describe("part 2") {
+        describe("exercise 2") {
+            it("should calculate result") {
+                val result = elvesPlay(71184*100, 435).playersMap.values.max()
+                result `should equal` 3333662986L
+            }
+        }
+    }
 })
 
-fun elvesPlay(nr: Int, players: Int): ElvesPlayState {
+fun elvesPlay(nr: Long, players: Int): ElvesPlayState {
     var current = MarbleList(0)
     val state = ElvesPlayState(current, 0)
     for (i in 1..nr) {
         state.currentPlayer = (state.currentPlayer ?: 0) % players + 1
-        if (i % 23 == 0) {
+        if (i % 23 == 0L) {
             repeat(7) {
                 current = current.prev
             }
@@ -151,17 +159,17 @@ fun elvesPlay(nr: Int, players: Int): ElvesPlayState {
     return state
 }
 
-data class ElvesPlayState(var marbles: MarbleList, var currentMarble: Int, var currentPlayer: Int? = null, val playersMap: MutableMap<Int, Int> = mutableMapOf()) {
-    constructor(marbles: MutableList<Int>, currentMarble: Int, currentPlayer: Int? = null, playersMap: MutableMap<Int, Int> = mutableMapOf()):
-            this(marbles.drop(1).fold(MarbleList(marbles.first())) { collector, element ->
-                val list = MarbleList(element)
+data class ElvesPlayState(var marbles: MarbleList, var currentMarble: Long, var currentPlayer: Int? = null, val playersMap: MutableMap<Int, Long> = mutableMapOf()) {
+    constructor(marbles: MutableList<Int>, currentMarble: Long, currentPlayer: Int? = null, playersMap: MutableMap<Int, Long> = mutableMapOf()):
+            this(marbles.drop(1).fold(MarbleList(marbles.first().toLong())) { collector, element ->
+                val list = MarbleList(element.toLong())
                 collector.add(list)
                 list
             }, currentMarble, currentPlayer, playersMap)
 }
 
 
-class MarbleList(val id: Int) {
+class MarbleList(val id: Long) {
     var next: MarbleList
     var prev: MarbleList
     init {
@@ -180,14 +188,14 @@ class MarbleList(val id: Int) {
         next.prev = prev
         return next
     }
-    fun toList(): List<Int> {
+    fun toList(): List<Long> {
         var start = this
-        while(start.id != 0) start = start.next
-        val result = LinkedList<Int>()
+        while(start.id != 0L) start = start.next
+        val result = LinkedList<Long>()
         result.add(start.id)
         while(true) {
             start = start.next
-            if(start.id == 0) break
+            if(start.id == 0L) break
             result.add(start.id)
         }
         return result
@@ -204,9 +212,5 @@ class MarbleList(val id: Int) {
         if (toList() != other.toList()) return false
 
         return true
-    }
-
-    override fun hashCode(): Int {
-        return id
     }
 }
