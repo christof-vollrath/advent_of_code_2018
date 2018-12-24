@@ -2,6 +2,7 @@ import org.amshove.kluent.`should equal`
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.it
+import org.jetbrains.spek.api.dsl.xit
 import org.jetbrains.spek.data_driven.data
 import java.util.*
 import org.jetbrains.spek.data_driven.on as onData
@@ -85,57 +86,6 @@ To begin, get your puzzle input.
 
 */
 
-class Day09Spec : Spek({
-
-    describe("part 1") {
-        describe("play examples") {
-            val testData = arrayOf(
-                    data(0, ElvesPlayState(mutableListOf(0), 0L)),
-                    data(1, ElvesPlayState(mutableListOf(0, 1), 1L, 1)),
-                    data(2, ElvesPlayState(mutableListOf(0, 2, 1), 2L, 2)),
-                    data(3, ElvesPlayState(mutableListOf(0, 2, 1, 3), 3L, 3)),
-                    data(22, ElvesPlayState(mutableListOf(0, 16, 8, 17, 4, 18, 9, 19, 2, 20, 10, 21, 5, 22, 11, 1, 12, 6, 13, 3, 14, 7, 15), 22L, 4)),
-                    data(23, ElvesPlayState(mutableListOf(0, 16, 8, 17, 4, 18, 19, 2, 20, 10, 21, 5, 22, 11, 1, 12, 6, 13, 3, 14, 7, 15), 19L, 5, mutableMapOf(5 to 32L)))
-            )
-            onData("play step %s", with = *testData) { nr, state ->
-                val result = elvesPlay(nr.toLong(), 9)
-                it("returns $state") {
-                    result `should equal` state
-                }
-            }
-        }
-        describe("more examples") {
-            val testData = arrayOf(
-                    data(10, 1618, 8317),
-                    data(13, 7999, 146373),
-                    data(17, 1104, 2764),
-                    data(21, 6111, 54718),
-                    data(30, 5807, 37305)
-            )
-            onData("play %s", with = *testData) { nrPlayers, nrMarbles, highScore ->
-                val result = elvesPlay(nrMarbles.toLong(), nrPlayers).playersMap.values.max()
-                it("returns $highScore") {
-                    result `should equal` highScore.toLong()
-                }
-            }
-        }
-        describe("exercise") {
-            it("should calculate result") {
-                val result = elvesPlay(71184, 435).playersMap.values.max()
-                result `should equal` 412959
-            }
-        }
-    }
-    describe("part 2") {
-        describe("exercise 2") {
-            it("should calculate result") {
-                val result = elvesPlay(71184*100, 435).playersMap.values.max()
-                result `should equal` 3333662986L
-            }
-        }
-    }
-})
-
 fun elvesPlay(nr: Long, players: Int): ElvesPlayState {
     var current = MarbleList(0)
     val state = ElvesPlayState(current, 0)
@@ -160,12 +110,12 @@ fun elvesPlay(nr: Long, players: Int): ElvesPlayState {
 }
 
 data class ElvesPlayState(var marbles: MarbleList, var currentMarble: Long, var currentPlayer: Int? = null, val playersMap: MutableMap<Int, Long> = mutableMapOf()) {
-    constructor(marbles: MutableList<Int>, currentMarble: Long, currentPlayer: Int? = null, playersMap: MutableMap<Int, Long> = mutableMapOf()):
+    constructor(marbles: List<Int>, currentMarble: Int, currentPlayer: Int? = null, playersMap: Map<Int, Long> = emptyMap()):
             this(marbles.drop(1).fold(MarbleList(marbles.first().toLong())) { collector, element ->
                 val list = MarbleList(element.toLong())
                 collector.add(list)
                 list
-            }, currentMarble, currentPlayer, playersMap)
+            }, currentMarble.toLong(), currentPlayer, playersMap.toMutableMap())
 }
 
 
@@ -214,3 +164,54 @@ class MarbleList(val id: Long) {
         return true
     }
 }
+
+class Day09Spec : Spek({
+
+    describe("part 1") {
+        describe("play examples") {
+            val testData = arrayOf(
+                    data(0, ElvesPlayState(listOf(0), 0)),
+                    data(1, ElvesPlayState(listOf(0, 1), 1, 1)),
+                    data(2, ElvesPlayState(listOf(0, 2, 1), 2, 2)),
+                    data(3, ElvesPlayState(listOf(0, 2, 1, 3), 3, 3)),
+                    data(22, ElvesPlayState(listOf(0, 16, 8, 17, 4, 18, 9, 19, 2, 20, 10, 21, 5, 22, 11, 1, 12, 6, 13, 3, 14, 7, 15), 22, 4)),
+                    data(23, ElvesPlayState(listOf(0, 16, 8, 17, 4, 18, 19, 2, 20, 10, 21, 5, 22, 11, 1, 12, 6, 13, 3, 14, 7, 15), 19, 5, mutableMapOf(5 to 32L)))
+            )
+            onData("play step %s", with = *testData) { nr, state ->
+                val result = elvesPlay(nr.toLong(), 9)
+                it("returns $state") {
+                    result `should equal` state
+                }
+            }
+        }
+        describe("more examples") {
+            val testData = arrayOf(
+                    data(10, 1618, 8317),
+                    data(13, 7999, 146373),
+                    data(17, 1104, 2764),
+                    data(21, 6111, 54718),
+                    data(30, 5807, 37305)
+            )
+            onData("play %s", with = *testData) { nrPlayers, nrMarbles, highScore ->
+                val result = elvesPlay(nrMarbles.toLong(), nrPlayers).playersMap.values.max()
+                it("returns $highScore") {
+                    result `should equal` highScore.toLong()
+                }
+            }
+        }
+        describe("exercise") {
+            it("should calculate result") {
+                val result = elvesPlay(71184, 435).playersMap.values.max()
+                result `should equal` 412959
+            }
+        }
+    }
+    describe("part 2") {
+        describe("exercise 2") {
+            xit("should calculate result") {
+                val result = elvesPlay(71184*100, 435).playersMap.values.max()
+                result `should equal` 3333662986L
+            }
+        }
+    }
+})
