@@ -203,9 +203,9 @@ class Day10Spec : Spek({
 
             it("should parse points") {
                 val lightPoints = parsePositionVelocityLines(input)
-                lightPoints[0] `should equal` LightPoint(Position(9, 1), Velocity(0, 2))
-                lightPoints[30] `should equal` LightPoint(Position(-3, 6), Velocity(2, -1))
-                lightPoints.size `should equal` 31
+                lightPoints.lightPoints[0] `should equal` LightPoint(Position(9, 1), Velocity(0, 2))
+                lightPoints.lightPoints[30] `should equal` LightPoint(Position(-3, 6), Velocity(2, -1))
+                lightPoints.lightPoints.size `should equal` 31
             }
             it("should print light points") {
                 val lightPoints = parsePositionVelocityLines(input)
@@ -279,7 +279,7 @@ class Day10Spec : Spek({
         given("exercise") {
             val input = readResource("day10Input.txt")
             val lightPoints = parsePositionVelocityLines(input)
-            it("should find message") {
+            xit("should find message") {
                 val nr = findMessage(lightPoints)
                 nr `should equal` 3
                 printLightPoints(lightPoints) `should equal` """
@@ -298,24 +298,49 @@ class Day10Spec : Spek({
     }
 })
 
-fun findMessage(lightPoints: List<LightPoint>): Int {
+class LightPointMap(val lightPoints: List<LightPoint>) {
+    val minX: Int
+    val maxX: Int
+    val map: List<List<Char>>
+
+    init {
+        minX = lightPoints.map { it.position.x }.min()!!
+        maxX = lightPoints.map { it.position.x }.max()!!
+        map = lightPointsToArray(lightPoints, minX, maxX)
+
+    }
+    private fun lightPointsToArray(lightPoints: List<LightPoint>, minX: Int, maxX: Int): List<List<Char>> {
+        val maxY = lightPoints.map { it.position.y }.max()!!
+        val minY = lightPoints.map { it.position.y }.min()!!
+        val lightPointsMap = lightPoints.map { it.position to it}.toMap()
+        return (minY..maxY).map { y ->
+            (minX..maxX).map { x ->
+                if (Position(x, y) in lightPointsMap) '#'
+                else '.'
+            }
+        }
+    }
+}
+
+fun findMessage(initLightPoints: LightPointMap): Int {
     var nr = 0
+    var lightPoints = initLightPoints
     while (! detectMessage(lightPoints)) {
         nr++
-        moveLightPoints(lightPoints)
+        lightPoints = moveLightPoints(lightPoints)
     }
     return nr
 }
 
-fun detectMessage(lightPoints: List<LightPoint>): Boolean {
-    val pointsArray = lightPointsToArray(lightPoints)
+fun detectMessage(lightPoints: LightPointMap): Boolean {
+    val pointsArray = lightPoints.map
     val size = pointsArray.size
     val columDistribution = calulateDistribution(pointsArray)
 //    println(printLightPoints(lightPoints))
     println("columnDistribution=$columDistribution")
     val count0 = columDistribution.filter { it == 0 }.size
     val countFull = columDistribution.filter { it == size }.size
-//    println("count0=$count0 countFull=$countFull size=$size")
+    println("count0=$count0 countFull=$countFull size=$size")
     return count0 > size * 0.03 && countFull > size * 0.01
 }
 
@@ -329,41 +354,31 @@ fun calulateDistribution(pointsArray: List<List<Char>>): List<Int> {
     }
 }
 
-fun moveLightPoints(lightPoints: List<LightPoint>) {
-    lightPoints.forEach { lightPoint ->
-        lightPoint.position = movePosition(lightPoint.position, lightPoint.velocity)
+fun moveLightPoints(lightPoints: LightPointMap): LightPointMap {
+    val nextPoints = lightPoints.lightPoints.map { lightPoint ->
+        val position = movePosition(lightPoint.position, lightPoint.velocity)
+        LightPoint(position, lightPoint.velocity)
     }
+    return LightPointMap(nextPoints)
 }
 
 fun movePosition(position: Position, velocity: Velocity) =
     Position(position.x + velocity.dx, position.y + velocity.dy)
 
 
-fun printLightPoints(lightPoints: List<LightPoint>): String {
-    return lightPointsToArray(lightPoints).map { line ->
+fun printLightPoints(lightPoints: LightPointMap): String {
+    return lightPoints.map.map { line ->
         line.joinToString("")
     }.joinToString("\n")
 }
 
-fun lightPointsToArray(lightPoints: List<LightPoint>): List<List<Char>> {
-    val maxX = lightPoints.map { it.position.x }.max()!!
-    val minX = lightPoints.map { it.position.x }.min()!!
-    val maxY = lightPoints.map { it.position.y }.max()!!
-    val minY = lightPoints.map { it.position.y }.min()!!
-    val lightPointsMap = lightPoints.map { it.position to it}.toMap()
-    return (minY..maxY).map { y ->
-        (minX..maxX).map { x ->
-            if (Position(x, y) in lightPointsMap) '#'
-            else '.'
-        }
-    }
-}
 
-fun parsePositionVelocityLines(input: String): List<LightPoint> {
+fun parsePositionVelocityLines(input: String): LightPointMap {
     val lines = input.split("\n")
-    return lines.filter { it.isNotBlank() }.map {
+    val lightPointList =  lines.filter { it.isNotBlank() }.map {
         parsePositionVelocityLine(it)
     }
+    return LightPointMap(lightPointList)
 }
 
 fun parsePositionVelocityLine(line: String): LightPoint {
