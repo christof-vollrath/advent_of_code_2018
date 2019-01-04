@@ -3,10 +3,10 @@ import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
-import org.jetbrains.spek.api.dsl.xit
 
 /*
 --- Day 10: The Stars Align ---
+
 It's no use; your navigation system simply isn't capable of providing walking directions in the arctic circle,
 and certainly not in 1018.
 
@@ -163,9 +163,111 @@ Of course, your message will be much longer and will take many more seconds to a
 What message will eventually appear in the sky?
  */
 
+data class Velocity(val dx: Int, val dy: Int)
+data class Position(val x: Int, val y: Int)
+data class LightPoint(var position: Position, val velocity: Velocity)
+
+class FloatingLightPoints(val lightPoints: List<LightPoint>) {
+    val minX = lightPoints.map { it.position.x }.min()!!
+    val maxX = lightPoints.map { it.position.x }.max()!!
+    val array: List<List<Char>> by lazy {
+        lightPointsToArray(lightPoints, minX, maxX)
+    }
+
+    private fun lightPointsToArray(lightPoints: List<LightPoint>, minX: Int, maxX: Int): List<List<Char>> {
+        val maxY = lightPoints.map { it.position.y }.max()!!
+        val minY = lightPoints.map { it.position.y }.min()!!
+        val lightPointsMap = lightPoints.map { it.position to it}.toMap()
+        return (minY..maxY).map { y ->
+            (minX..maxX).map { x ->
+                if (Position(x, y) in lightPointsMap) '#'
+                else '.'
+            }
+        }
+    }
+}
+
+fun findMessage(initLightPoints: FloatingLightPoints): Pair<FloatingLightPoints, Int> {
+    var nr = 0
+    var lightPoints = initLightPoints
+    while (! detectMessage(lightPoints)) {
+        nr++
+        lightPoints = moveLightPoints(lightPoints)
+    }
+    return lightPoints to nr
+}
+
+fun detectMessage(lightPoints: FloatingLightPoints): Boolean {
+    if (arrayToHigh(lightPoints, 100)) return false // Hight of text will not be higher than 100
+    val pointsArray = lightPoints.array
+    val size = pointsArray.size
+    val columDistribution = calulateDistribution(pointsArray)
+    val count0 = columDistribution.filter { it == 0 }.size
+    val countFull = columDistribution.filter { it == size }.size
+    return count0 > size * 0.03 && countFull > size * 0.01 // Some assumption about distribution of points in a text
+}
+
+fun arrayToHigh(lightPoints: FloatingLightPoints, maxHight: Int): Boolean {
+    var minY = Int.MAX_VALUE
+    var maxY = Int.MIN_VALUE
+    lightPoints.lightPoints.forEach { lightPoint ->
+        if (lightPoint.position.y < minY) minY = lightPoint.position.y
+        if (lightPoint.position.y > maxY) maxY = lightPoint.position.y
+        if (maxY - minY > maxHight) {
+            return true
+        }
+    }
+    return false
+}
+
+fun calulateDistribution(pointsArray: List<List<Char>>): List<Int> {
+    val sizeX = pointsArray[0].size // Assuming every row has same size
+    return (0 until sizeX).map {x ->
+        pointsArray.map { line ->
+            if (line[x] == '#') 1
+            else 0
+        }.sum()
+    }
+}
+
+fun moveLightPoints(lightPoints: FloatingLightPoints): FloatingLightPoints {
+    val nextPoints = lightPoints.lightPoints.map { lightPoint ->
+        val position = movePosition(lightPoint.position, lightPoint.velocity)
+        LightPoint(position, lightPoint.velocity)
+    }
+    return FloatingLightPoints(nextPoints)
+}
+
+fun movePosition(position: Position, velocity: Velocity) =
+        Position(position.x + velocity.dx, position.y + velocity.dy)
+
+
+fun printLightPoints(lightPoints: FloatingLightPoints): String {
+    return lightPoints.array.map { line ->
+        line.joinToString("")
+    }.joinToString("\n")
+}
+
+
+fun parsePositionVelocityLines(input: String): FloatingLightPoints {
+    val lines = input.split("\n")
+    val lightPointList =  lines.filter { it.isNotBlank() }.map {
+        parsePositionVelocityLine(it)
+    }
+    return FloatingLightPoints(lightPointList)
+}
+
+fun parsePositionVelocityLine(line: String): LightPoint {
+    val regex = """position=<\s*(-?\d+),\s*(-?\d+)> velocity=<\s*(-?\d+),\s*(-?\d+)>""".toRegex()
+    val match = regex.find(line) ?: throw IllegalArgumentException("Can not parse line=$line")
+    if (match.groupValues.size != 5) throw IllegalArgumentException("Not all elements parsed")
+    val values = match.groupValues
+    return LightPoint(Position(values[1].toInt(), values[2].toInt()), Velocity(values[3].toInt(), values[4].toInt()))
+}
+
 class Day10Spec : Spek({
 
-    describe("part 1") {
+    describe("part 1 and 2") {
         given("example") {
             val input = """
                 position=< 9,  1> velocity=< 0,  2>
@@ -230,8 +332,8 @@ class Day10Spec : Spek({
             }
             it("should move light points") {
                 val lightPoints = parsePositionVelocityLines(input)
-                moveLightPoints(lightPoints)
-                printLightPoints(lightPoints) `should equal` """
+                val movedLightPoints = moveLightPoints(lightPoints)
+                printLightPoints(movedLightPoints) `should equal` """
                     ........#....#....
                     ......#.....#.....
                     #.........#......#
@@ -248,8 +350,9 @@ class Day10Spec : Spek({
             }
             it("after 3 seconds hi should apear") {
                 val lightPoints = parsePositionVelocityLines(input)
-                repeat(3) { moveLightPoints(lightPoints) }
-                printLightPoints(lightPoints) `should equal` """
+                var movedLightPoints = lightPoints
+                repeat(3) { movedLightPoints = moveLightPoints(movedLightPoints) }
+                printLightPoints(movedLightPoints) `should equal` """
                     #...#..###
                     #...#...#.
                     #...#...#.
@@ -262,9 +365,9 @@ class Day10Spec : Spek({
             }
             it("detect message") {
                 val lightPoints = parsePositionVelocityLines(input)
-                val nr = findMessage(lightPoints)
+                val (result, nr) = findMessage(lightPoints)
                 nr `should equal` 3
-                printLightPoints(lightPoints) `should equal` """
+                printLightPoints(result) `should equal` """
                     #...#..###
                     #...#...#.
                     #...#...#.
@@ -278,117 +381,24 @@ class Day10Spec : Spek({
         }
         given("exercise") {
             val input = readResource("day10Input.txt")
-            val lightPoints = parsePositionVelocityLines(input)
-            xit("should find message") {
-                val nr = findMessage(lightPoints)
-                nr `should equal` 3
-                printLightPoints(lightPoints) `should equal` """
-                    #...#..###
-                    #...#...#.
-                    #...#...#.
-                    #####...#.
-                    #...#...#.
-                    #...#...#.
-                    #...#...#.
-                    #...#..###
+            it("should find message") {
+                val lightPoints = parsePositionVelocityLines(input)
+                val (result, nr) = findMessage(lightPoints)
+                nr `should equal` 10304
+                printLightPoints(result) `should equal` """
+                    #####.....##....#....#..#.......#####.....##....#####...#####.
+                    #....#...#..#...##...#..#.......#....#...#..#...#....#..#....#
+                    #....#..#....#..##...#..#.......#....#..#....#..#....#..#....#
+                    #....#..#....#..#.#..#..#.......#....#..#....#..#....#..#....#
+                    #####...#....#..#.#..#..#.......#####...#....#..#####...#####.
+                    #.......######..#..#.#..#.......#.......######..#.......#..#..
+                    #.......#....#..#..#.#..#.......#.......#....#..#.......#...#.
+                    #.......#....#..#...##..#.......#.......#....#..#.......#...#.
+                    #.......#....#..#...##..#.......#.......#....#..#.......#....#
+                    #.......#....#..#....#..######..#.......#....#..#.......#....#
                 """.trimIndent()
 
             }
         }
     }
 })
-
-class LightPointMap(val lightPoints: List<LightPoint>) {
-    val minX: Int
-    val maxX: Int
-    val map: List<List<Char>>
-
-    init {
-        minX = lightPoints.map { it.position.x }.min()!!
-        maxX = lightPoints.map { it.position.x }.max()!!
-        map = lightPointsToArray(lightPoints, minX, maxX)
-
-    }
-    private fun lightPointsToArray(lightPoints: List<LightPoint>, minX: Int, maxX: Int): List<List<Char>> {
-        val maxY = lightPoints.map { it.position.y }.max()!!
-        val minY = lightPoints.map { it.position.y }.min()!!
-        val lightPointsMap = lightPoints.map { it.position to it}.toMap()
-        return (minY..maxY).map { y ->
-            (minX..maxX).map { x ->
-                if (Position(x, y) in lightPointsMap) '#'
-                else '.'
-            }
-        }
-    }
-}
-
-fun findMessage(initLightPoints: LightPointMap): Int {
-    var nr = 0
-    var lightPoints = initLightPoints
-    while (! detectMessage(lightPoints)) {
-        nr++
-        lightPoints = moveLightPoints(lightPoints)
-    }
-    return nr
-}
-
-fun detectMessage(lightPoints: LightPointMap): Boolean {
-    val pointsArray = lightPoints.map
-    val size = pointsArray.size
-    val columDistribution = calulateDistribution(pointsArray)
-//    println(printLightPoints(lightPoints))
-    println("columnDistribution=$columDistribution")
-    val count0 = columDistribution.filter { it == 0 }.size
-    val countFull = columDistribution.filter { it == size }.size
-    println("count0=$count0 countFull=$countFull size=$size")
-    return count0 > size * 0.03 && countFull > size * 0.01
-}
-
-fun calulateDistribution(pointsArray: List<List<Char>>): List<Int> {
-    val sizeX = pointsArray[0].size // Assuming every row has same size
-    return (0 until sizeX).map {x ->
-        pointsArray.map { line ->
-            if (line[x] == '#') 1
-            else 0
-        }.sum()
-    }
-}
-
-fun moveLightPoints(lightPoints: LightPointMap): LightPointMap {
-    val nextPoints = lightPoints.lightPoints.map { lightPoint ->
-        val position = movePosition(lightPoint.position, lightPoint.velocity)
-        LightPoint(position, lightPoint.velocity)
-    }
-    return LightPointMap(nextPoints)
-}
-
-fun movePosition(position: Position, velocity: Velocity) =
-    Position(position.x + velocity.dx, position.y + velocity.dy)
-
-
-fun printLightPoints(lightPoints: LightPointMap): String {
-    return lightPoints.map.map { line ->
-        line.joinToString("")
-    }.joinToString("\n")
-}
-
-
-fun parsePositionVelocityLines(input: String): LightPointMap {
-    val lines = input.split("\n")
-    val lightPointList =  lines.filter { it.isNotBlank() }.map {
-        parsePositionVelocityLine(it)
-    }
-    return LightPointMap(lightPointList)
-}
-
-fun parsePositionVelocityLine(line: String): LightPoint {
-    val regex = """position=<\s*(-?\d+),\s*(-?\d+)> velocity=<\s*(-?\d+),\s*(-?\d+)>""".toRegex()
-    val match = regex.find(line) ?: throw IllegalArgumentException("Can not parse line=$line")
-    if (match.groupValues.size != 5) throw IllegalArgumentException("Not all elements parsed")
-    val values = match.groupValues
-    return LightPoint(Position(values[1].toInt(), values[2].toInt()), Velocity(values[3].toInt(), values[4].toInt()))
-}
-
-data class Velocity(val dx: Int, val dy: Int)
-data class Position(val x: Int, val y: Int)
-data class LightPoint(var position: Position, val velocity: Velocity)
