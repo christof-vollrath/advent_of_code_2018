@@ -3,6 +3,7 @@ import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
+import org.jetbrains.spek.api.dsl.xit
 import java.lang.IllegalArgumentException
 
 /*
@@ -109,6 +110,13 @@ To begin, get your puzzle input.
 
 initial state: ##.#.####..#####..#.....##....#.#######..#.#...........#......##...##.#...####..##.#..##.....#..####
 
+--- Part Two ---
+
+You realize that 20 generations aren't enough.
+After all, these plants will need to last another 1500 years to even reach your timeline, not to mention your future.
+
+After fifty billion (50000000000) generations, what is the sum of the numbers of all pots which contain a plant?
+
  */
 
 fun countPlants(plantState: List<Pair<Int, Boolean>>) = plantState.filter { it.second }.sumBy { it.first }
@@ -129,7 +137,9 @@ fun executePlantTransition(initialState: List<Pair<Int, Boolean>>, transitions: 
 
 fun executePlantTransition(initialState: List<Pair<Int, Boolean>>, transitions: List<PlantTransition>, times: Int): List<Pair<Int, Boolean>> {
     var currentState = initialState
-    repeat(times) {
+    repeat(times) { i ->
+        //println("$i: ${countPlants(currentState)}")
+        //println(printPlantState(currentState))
         currentState = executePlantTransition(currentState, transitions)
     }
     return currentState
@@ -236,7 +246,25 @@ class Day12Spec : Spek({
             it("should count plants") {
                 countPlants(executePlantTransition(initialState, transitions, 20)) `should equal` 3798
             }
-
         }
     }
+    describe("part 2") {
+        given("exercise") {
+            val input = readResource("day12Input.txt")
+            val transitions = parsePlantTransitions(input)
+            val initialState = parsePlantState("##.#.####..#####..#.....##....#.#######..#.#...........#......##...##.#...####..##.#..##.....#..####")
+            val c1 = countPlants(executePlantTransition(initialState, transitions, 10000))
+            it("should calculate diffs between cycles") {
+                // it turns out that after some time the same pattern is just shifted and plant count increases by 780_000 after 10_000 cyles
+                val c2 = countPlants(executePlantTransition(initialState, transitions, 20000))
+                c2 `should equal` c1 + 780_000
+            }
+            it("should calculate number of plants after 50000000000 cycles") {
+                val x = (50000000000L - 10_000) / 10_000
+                val result = x * 780_000L + c1
+                result `should equal` 3900000002212L
+            }
+        }
+    }
+
 })
