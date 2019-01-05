@@ -154,7 +154,7 @@ tailrec fun traverseSteps(instructions: Instructions, steps: List<Step>, already
 fun parseInstructions(input: String): Instructions {
     val result = Instructions()
     input.split("\n").forEach { line ->
-        val  regex = """Step (\p{Lu}) must be finished before step (\p{Lu}) can begin.""".toRegex()
+        val regex = """Step (\p{Lu}) must be finished before step (\p{Lu}) can begin.""".toRegex()
         val match = regex.find(line) ?: throw IllegalArgumentException("Can not parse line=$line")
         if (match.groupValues.size != 3) throw IllegalArgumentException("Not all elements parsed")
         val values = match.groupValues
