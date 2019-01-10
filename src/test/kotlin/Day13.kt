@@ -5,7 +5,6 @@ import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
 import java.lang.IllegalArgumentException
 import java.lang.IllegalStateException
-import javax.sound.midi.Track
 
 /*
 --- Day 13: Mine Cart Madness ---
@@ -215,9 +214,9 @@ class Day13Spec : Spek({
                             Pair(2, 0) to TrackElement.UpperLeftCurve,
                             Pair(0, 1) to TrackElement.VerticalStraight,
                             Pair(2, 1) to TrackElement.VerticalStraight,
-                            Pair(0, 2) to TrackElement.LowerRightCurve,
+                            Pair(0, 2) to TrackElement.LowerLeftCurve,
                             Pair(1, 2) to TrackElement.HorizontalStraight,
-                            Pair(2, 2) to TrackElement.LowerLeftCurve
+                            Pair(2, 2) to TrackElement.LowerRightCurve
                     )
                     printRailMap(railMap) `should equal` mapString
                 }
@@ -241,14 +240,31 @@ class Day13Spec : Spek({
                             Pair(1, 1) to TrackElement.UpperRightCurve,
                             Pair(2, 1) to TrackElement.Intersection,
                             Pair(3, 1) to TrackElement.UpperLeftCurve,
-                            Pair(0, 2) to TrackElement.LowerRightCurve,
+                            Pair(0, 2) to TrackElement.LowerLeftCurve,
                             Pair(1, 2) to TrackElement.Intersection,
-                            Pair(2, 2) to TrackElement.LowerLeftCurve,
+                            Pair(2, 2) to TrackElement.LowerRightCurve,
                             Pair(3, 2) to TrackElement.VerticalStraight,
-                            Pair(1, 3) to TrackElement.LowerRightCurve,
+                            Pair(1, 3) to TrackElement.LowerLeftCurve,
                             Pair(2, 3) to TrackElement.HorizontalStraight,
-                            Pair(3, 3) to TrackElement.LowerLeftCurve
+                            Pair(3, 3) to TrackElement.LowerRightCurve
                     )
+                    printRailMap(railMap) `should equal` mapString
+                }
+            }
+            given("complex example with intersections") {
+                val mapString = """
+                    |/-\||
+                    ||/+\|
+                    |\+/||
+                    ||\-/|
+                    """.trimIndent()
+
+                it("should be parsed correctly") {
+                    val railMap = parseRailMap(mapString)
+                    railMap[Pair(1, 0)] `should equal` TrackElement.UpperRightCurve
+                    railMap[Pair(3, 0)] `should equal` TrackElement.UpperLeftCurve
+                    railMap[Pair(1, 2)] `should equal` TrackElement.LowerLeftCurve
+                    railMap[Pair(3, 2)] `should equal` TrackElement.LowerRightCurve
                     printRailMap(railMap) `should equal` mapString
                 }
             }
@@ -262,23 +278,6 @@ class Day13Spec : Spek({
 
                 it("should be parsed correctly") {
                     val (railMap, carts) = parseRailMapWithCarts(mapString)
-                    railMap.size `should equal` 14
-                    railMap `should equal` mapOf(
-                            Pair(0, 0) to TrackElement.UpperRightCurve,
-                            Pair(1, 0) to TrackElement.HorizontalStraight,
-                            Pair(2, 0) to TrackElement.UpperLeftCurve,
-                            Pair(0, 1) to TrackElement.VerticalStraight,
-                            Pair(1, 1) to TrackElement.UpperRightCurve,
-                            Pair(2, 1) to TrackElement.Intersection,
-                            Pair(3, 1) to TrackElement.UpperLeftCurve,
-                            Pair(0, 2) to TrackElement.LowerRightCurve,
-                            Pair(1, 2) to TrackElement.Intersection,
-                            Pair(2, 2) to TrackElement.LowerLeftCurve,
-                            Pair(3, 2) to TrackElement.VerticalStraight,
-                            Pair(1, 3) to TrackElement.LowerRightCurve,
-                            Pair(2, 3) to TrackElement.HorizontalStraight,
-                            Pair(3, 3) to TrackElement.LowerLeftCurve
-                    )
                     carts `should equal` setOf(
                             Cart(Pair(1, 0), Direction.Right),
                             Cart(Pair(0, 1), Direction.Up),
@@ -288,6 +287,100 @@ class Day13Spec : Spek({
                     printRailMap(railMap, carts) `should equal` mapString
                 }
             }
+            given("a map full of intersections") {
+                val mapString = """
+                    v
+                    +++++
+                    +++++
+                    +++++
+                    """.trimIndent()
+                val steps = listOf(
+                    """
+                    |
+                    >++++
+                    +++++
+                    +++++
+                    """.trimIndent(),
+                    """
+                    |
+                    +>+++
+                    +++++
+                    +++++
+                    """.trimIndent(),
+                    """
+                    |
+                    ++v++
+                    +++++
+                    +++++
+                    """.trimIndent(),
+                    """
+                    |
+                    +++++
+                    ++>++
+                    +++++
+                    """.trimIndent(),
+                    """
+                    |
+                    +++++
+                    +++>+
+                    +++++
+                    """.trimIndent(),
+                    """
+                    |
+                    +++++
+                    ++++v
+                    +++++
+                    """.trimIndent()
+
+                )
+                val (railMap, carts) = parseRailMapWithCarts(mapString)
+                var movedCarts = carts
+                it("should be moved correctly for all steps") {
+                    steps.forEachIndexed { i, step ->
+                        val (nextMovedCarts, _) = moveCartsAndFindCollision(movedCarts, railMap)
+                        movedCarts = nextMovedCarts
+                        printRailMap(railMap, movedCarts) `should equal` step
+                    }
+                }
+            }
+            given("a map with a trouble zone") {
+                val mapString = """
+                    |v|
+                    |\+
+                    """.trimIndent()
+                val steps = listOf(
+                    """
+                    |||
+                    |>+
+                    """.trimIndent(),
+                    """
+                    |||
+                    |\^
+                    """.trimIndent()
+                )
+                val (railMap, carts) = parseRailMapWithCarts(mapString)
+                it("should be parsed correctly") {
+                    railMap.size `should equal` 6
+                    railMap `should equal` mapOf(
+                            Pair(0, 0) to TrackElement.VerticalStraight,
+                            Pair(1, 0) to TrackElement.VerticalStraight,
+                            Pair(2, 0) to TrackElement.VerticalStraight,
+                            Pair(0, 1) to TrackElement.VerticalStraight,
+                            Pair(1, 1) to TrackElement.LowerLeftCurve,
+                            Pair(2, 1) to TrackElement.Intersection
+                    )
+                    printRailMap(railMap, carts) `should equal` mapString
+                }
+                var movedCarts = carts
+                it("should be moved correctly for all steps") {
+                    steps.forEachIndexed { i, step ->
+                        val (nextMovedCarts, _) = moveCartsAndFindCollision(movedCarts, railMap)
+                        movedCarts = nextMovedCarts
+                        printRailMap(railMap, movedCarts) `should equal` step
+                    }
+                }
+            }
+
             given("example") {
                 val mapString = """
                     /->-\
@@ -415,7 +508,8 @@ class Day13Spec : Spek({
                 var movedCarts = carts
                 it("should be moved correctly for all steps") {
                     steps.forEachIndexed { i, step ->
-                        movedCarts = moveCarts(movedCarts, railMap)
+                        val (nextMovedCarts, _) = moveCartsAndFindCollision(movedCarts, railMap)
+                        movedCarts = nextMovedCarts
                         printRailMap(railMap, movedCarts) `should equal` step
                     }
                 }
@@ -432,38 +526,54 @@ class Day13Spec : Spek({
                     """.trimIndent()
             val (railMap, carts) = parseRailMapWithCarts(mapString)
             it("should find collision") {
-                findFirstCollision(railMap, carts) `should equal` Pair(7, 3)
+                findFirstCollision(railMap, carts).collisions.first() `should equal` Pair(7, 3)
             }
         }
         given("exercise") {
             val mapString = readResource("day13Input.txt")
             val (railMap, carts) = parseRailMapWithCarts(mapString)
             it("should find collision") {
-                findFirstCollision(railMap, carts) `should equal` Pair(7, 3)
+                val result = findFirstCollision(railMap, carts)
+                println(result)
+                println(printRailMap(railMap, result.carts))
+                result.collisions.first() `should equal` Pair(63, 103)
             }
         }
     }
 })
 
-fun findFirstCollision(railMap: RailMap, carts: Set<Cart>): Pair<Int, Int> {
+data class FindFirstCollisionResult(val collisions: Set<Pair<Int, Int>>, val iteration: Int, val carts: Set<Cart>)
+
+fun findFirstCollision(railMap: RailMap, carts: Set<Cart>): FindFirstCollisionResult {
     var movedCarts = carts
     var i = 0
     while(true) {
-        println("i=$i"); i++
-        if (i in 12..15) println(printRailMap(railMap, carts))
-        val collisions = findCollisions(movedCarts)
-        if (collisions.isNotEmpty()) return collisions.first()
-        try {
-            movedCarts = moveCarts(movedCarts, railMap)
-        } catch(e: Exception) {
-            println(e)
-            println(printRailMap(railMap, carts))
-            throw e
-        }
+        val (nextMovedCarts, collisions) = moveCartsAndFindCollision(movedCarts, railMap)
+//        println("i=$i collisions=$collisions")
+//        println(printRailMap(railMap, nextMovedCarts))
+        if (collisions.isNotEmpty())
+            return FindFirstCollisionResult(collisions, i, movedCarts)
+        movedCarts = nextMovedCarts
+        i++
     }
 }
 
-fun moveCarts(carts: Set<Cart>, railMap: RailMap): Set<Cart> = carts.map { moveCart(it, railMap) }.toSet()
+//fun moveCartsAndFindCollision(carts: Set<Cart>, railMap: RailMap): Set<Cart> =
+//        carts.sortedWith(compareBy({it.position.second}, {it.position.first}))
+//                .map { moveCart(it, railMap) }
+//                .toSet()
+fun moveCartsAndFindCollision(carts: Set<Cart>, railMap: RailMap): Pair<Set<Cart>, Set<Pair<Int, Int>>> {
+    val mutableCarts = carts.sortedWith(compareBy({it.position.second}, {it.position.first})).toMutableList()
+    var collisions = mutableSetOf<Pair<Int, Int>>()
+    mutableCarts.mapIndexed { index, cart ->
+        val movedCart = moveCart(cart, railMap)
+        if (movedCart.position in mutableCarts.map { it.position}) {
+            collisions.add(movedCart.position)
+        }
+        mutableCarts[index] = moveCart(cart, railMap)
+    }
+    return Pair(mutableCarts.sortedWith(compareBy({it.position.second}, {it.position.first})).toSet(), collisions)
+}
 
 fun moveCart(cart: Cart, railMap: RailMap) = with(cart) {
     val nextPosition = when (direction) {
@@ -544,8 +654,8 @@ fun printRailMap(railMap: RailMap, carts: Set<Cart> = emptySet()): String {
                         TrackElement.VerticalStraight -> '|'
                         TrackElement.HorizontalStraight -> '-'
                         TrackElement.Intersection -> '+'
-                        TrackElement.UpperRightCurve, TrackElement.LowerLeftCurve -> '/'
-                        TrackElement.UpperLeftCurve, TrackElement.LowerRightCurve -> '\\'
+                        TrackElement.UpperRightCurve, TrackElement.LowerRightCurve -> '/'
+                        TrackElement.UpperLeftCurve, TrackElement.LowerLeftCurve -> '\\'
                     }
             }
         }.joinToString("").trimEnd()
@@ -553,7 +663,7 @@ fun printRailMap(railMap: RailMap, carts: Set<Cart> = emptySet()): String {
 
 }
 
-fun findCollisions(carts: Set<Cart>): Set<Pair<Int, Int>> = carts.groupBy { it.position }.entries
+fun findCollisions(carts: Set<Cart>): Set<Pair<Int, Int>> = carts.sortedWith(compareBy({it.position.second}, {it.position.first})).groupBy { it.position }.entries
             .filter { it.value.size > 1 }
             .map { it.key }
             .toSet()
@@ -571,7 +681,7 @@ fun parseRailMap(mapString: String): RailMap =
                         val right = line.getOrNull(x + 1)
                         when {
                             isVerticalOrEquivalent(right) -> TrackElement.UpperRightCurve
-                            isVerticalOrEquivalent(left) -> TrackElement.LowerLeftCurve
+                            isVerticalOrEquivalent(left) -> TrackElement.LowerRightCurve
                             else -> throw IllegalArgumentException("Illegal curve at x=$x y=$y $c")
                         }
                     }
@@ -579,7 +689,7 @@ fun parseRailMap(mapString: String): RailMap =
                         val left = line.getOrNull(x - 1)
                         val right = line.getOrNull(x + 1)
                         when {
-                            isVerticalOrEquivalent(right) -> TrackElement.LowerRightCurve
+                            isVerticalOrEquivalent(right) -> TrackElement.LowerLeftCurve
                             isVerticalOrEquivalent(left) -> TrackElement.UpperLeftCurve
                             else -> throw IllegalArgumentException("Illegal curve at x=$x y=$y $c")
                         }
