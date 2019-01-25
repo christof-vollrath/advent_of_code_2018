@@ -113,6 +113,20 @@ data class RecipeList(var elements: List<Int>) {
             //if (elements.size % 100 == 0) println(elements.size)
         }
     }
+
+    fun cookUntilPattern(elve1: KitchenElve, elve2: KitchenElve, pattern: String) {
+        fun patternFound(elementsSizeBeforeCooking: Int): Boolean {
+            val ignoreElements = elementsSizeBeforeCooking - pattern.length
+            val checkedIgnoreElements = if (ignoreElements < 0) 0 else ignoreElements
+            return elements.drop(checkedIgnoreElements).joinToString("").indexOf(pattern) >= 0
+        }
+        var elementsSizeBeforeCooking = elements.size
+        while(! patternFound(elementsSizeBeforeCooking)) {
+            elementsSizeBeforeCooking = elements.size
+            cook(elve1, elve2)
+            if (elements.size % 100 == 0) println("size=${elements.size} elve1=${elve1.pos} elve2=${elve2.pos}")
+        }
+    }
 }
 
 data class KitchenElve(var pos: Int, val recipeList: RecipeList) {
@@ -190,6 +204,37 @@ class Day14Spec : Spek({
                 xit("should cook all recipes are tested") {
                     recipeList.cookUntil(elve1, elve2, input+10)
                     recipeList.elements.drop(input).take(10).joinToString("") `should equal` "8176111038"
+                }
+            }
+        }
+    }
+    describe("part 2") {
+        describe("example") {
+            given("a list of recipes and two elves") {
+                val recipeList = RecipeList(37)
+                val elve1 = KitchenElve(0, recipeList)
+                val elve2 = KitchenElve(1, recipeList)
+                it("should cook until 51589 is found") {
+                    val pattern = "51589"
+                    recipeList.cookUntilPattern(elve1, elve2, pattern)
+                    recipeList.elements.joinToString("").indexOf(pattern) `should equal` 9
+                }
+                it("should cook until 59414 is found") {
+                    val pattern = "59414"
+                    recipeList.cookUntilPattern(elve1, elve2, pattern)
+                    recipeList.elements.joinToString("").indexOf(pattern) `should equal` 2018
+                }
+            }
+        }
+        describe("exercise") {
+            given("a list of recipes, two elves and the input number") {
+                val input = "890691"
+                val recipeList = RecipeList(37)
+                val elve1 = KitchenElve(0, recipeList)
+                val elve2 = KitchenElve(1, recipeList)
+                it("should cook until 890691 is found") {
+                    recipeList.cookUntilPattern(elve1, elve2, input)
+                    recipeList.elements.joinToString("").indexOf(input) `should equal` 2018
                 }
             }
         }
