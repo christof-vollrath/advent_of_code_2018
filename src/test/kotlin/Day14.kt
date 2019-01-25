@@ -4,6 +4,7 @@ import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
 import org.jetbrains.spek.api.dsl.xit
+import java.lang.StringBuilder
 
 /*
 --- Day 14: Chocolate Charts ---
@@ -90,27 +91,26 @@ How many recipes appear on the scoreboard to the left of the score sequence in y
 
  */
 
-data class RecipeList(var elements: List<Int>) {
-    constructor(input: Int) : this(intToIntList(input))
-
-    fun append(additionalElements: List<Int>) {
-        elements += additionalElements
+class RecipeList {
+    val elements = StringBuilder()
+    constructor(input: Int) {
+        elements.append(input.toString())
     }
+
     fun append(additionalElementsInt: Int) {
-        append(intToIntList(additionalElementsInt))
+        elements.append(additionalElementsInt.toString())
     }
     fun cook(elve1: KitchenElve, elve2: KitchenElve) {
-        val score1 = elements[elve1.pos]
-        val score2 = elements[elve2.pos]
+        val score1 = elements[elve1.pos].toString().toInt()
+        val score2 = elements[elve2.pos].toString().toInt()
         append(score1 + score2)
         elve1.stepForward(1 + score1)
         elve2.stepForward(1 + score2)
     }
 
     fun cookUntil(elve1: KitchenElve, elve2: KitchenElve, nr: Int) {
-        while(elements.size < nr) {
+        while(elements.length < nr) {
             cook(elve1, elve2)
-            //if (elements.size % 100 == 0) println(elements.size)
         }
     }
 
@@ -118,26 +118,21 @@ data class RecipeList(var elements: List<Int>) {
         fun patternFound(elementsSizeBeforeCooking: Int): Boolean {
             val ignoreElements = elementsSizeBeforeCooking - pattern.length
             val checkedIgnoreElements = if (ignoreElements < 0) 0 else ignoreElements
-            return elements.drop(checkedIgnoreElements).joinToString("").indexOf(pattern) >= 0
+            return elements.substring(checkedIgnoreElements).indexOf(pattern) >= 0
         }
-        var elementsSizeBeforeCooking = elements.size
+        var elementsSizeBeforeCooking = elements.length
         while(! patternFound(elementsSizeBeforeCooking)) {
-            elementsSizeBeforeCooking = elements.size
+            elementsSizeBeforeCooking = elements.length
             cook(elve1, elve2)
-            if (elements.size % 100 == 0) println("size=${elements.size} elve1=${elve1.pos} elve2=${elve2.pos}")
         }
     }
 }
 
 data class KitchenElve(var pos: Int, val recipeList: RecipeList) {
     fun stepForward(nr: Int) {
-        pos = (pos + nr) % recipeList.elements.size
+        pos = (pos + nr) % recipeList.elements.length
     }
 }
-
-private fun intToIntList(input: Int): List<Int> =
-        if (input >= 10) intToIntList(input / 10) + listOf(input % 10)
-        else listOf(input % 10)
 
 class Day14Spec : Spek({
 
@@ -147,7 +142,7 @@ class Day14Spec : Spek({
                 val input = 37
                 it("should create recipe list") {
                     val recipeList = RecipeList(input)
-                    recipeList.elements `should equal` listOf(3, 7)
+                    recipeList.elements.toString() `should equal` "37"
                 }
             }
         }
@@ -157,7 +152,7 @@ class Day14Spec : Spek({
                 val input = 10
                 it("should append to recipe list") {
                     recipeList.append(input)
-                    recipeList.elements `should equal` listOf(3, 7, 1, 0)
+                    recipeList.elements.toString() `should equal` "3710"
                 }
             }
         }
@@ -168,13 +163,13 @@ class Day14Spec : Spek({
                 val elve2 = KitchenElve(1, recipeList)
                 it("should cook") {
                     recipeList.cook(elve1, elve2)
-                    recipeList.elements `should equal` listOf(3, 7, 1, 0)
+                    recipeList.elements.toString() `should equal` "3710"
                     elve1.pos `should equal` 0
                     elve2.pos `should equal` 1
                 }
                 it("should cook more") {
                     repeat(5) { recipeList.cook(elve1, elve2) }
-                    recipeList.elements `should equal` listOf(3, 7, 1, 0, 1, 0, 1, 2, 4, 5)
+                    recipeList.elements.toString() `should equal` "3710101245"
                     elve1.pos `should equal` 6
                     elve2.pos `should equal` 3
                 }
@@ -187,11 +182,11 @@ class Day14Spec : Spek({
                 val elve2 = KitchenElve(1, recipeList)
                 it("should cook until 15 recipes are tested") {
                     recipeList.cookUntil(elve1, elve2, 15)
-                    recipeList.elements.drop(5).take(10).joinToString("") `should equal` "0124515891"
+                    recipeList.elements.substring(5, 5+10) `should equal` "0124515891"
                 }
                 it("should cook until 2028 recipes are tested") {
                     recipeList.cookUntil(elve1, elve2, 2028)
-                    recipeList.elements.drop(2018).take(10).joinToString("") `should equal` "5941429882"
+                    recipeList.elements.substring(2018, 2018+10) `should equal` "5941429882"
                 }
             }
         }
@@ -201,9 +196,9 @@ class Day14Spec : Spek({
                 val recipeList = RecipeList(37)
                 val elve1 = KitchenElve(0, recipeList)
                 val elve2 = KitchenElve(1, recipeList)
-                xit("should cook all recipes are tested") {
+                it("should cook all recipes are tested") {
                     recipeList.cookUntil(elve1, elve2, input+10)
-                    recipeList.elements.drop(input).take(10).joinToString("") `should equal` "8176111038"
+                    recipeList.elements.substring(input, input+10) `should equal` "8176111038"
                 }
             }
         }
@@ -217,12 +212,12 @@ class Day14Spec : Spek({
                 it("should cook until 51589 is found") {
                     val pattern = "51589"
                     recipeList.cookUntilPattern(elve1, elve2, pattern)
-                    recipeList.elements.joinToString("").indexOf(pattern) `should equal` 9
+                    recipeList.elements.toString().indexOf(pattern) `should equal` 9
                 }
                 it("should cook until 59414 is found") {
                     val pattern = "59414"
                     recipeList.cookUntilPattern(elve1, elve2, pattern)
-                    recipeList.elements.joinToString("").indexOf(pattern) `should equal` 2018
+                    recipeList.elements.toString().indexOf(pattern) `should equal` 2018
                 }
             }
         }
@@ -232,9 +227,9 @@ class Day14Spec : Spek({
                 val recipeList = RecipeList(37)
                 val elve1 = KitchenElve(0, recipeList)
                 val elve2 = KitchenElve(1, recipeList)
-                it("should cook until 890691 is found") {
+                xit("should cook until 890691 is found") {
                     recipeList.cookUntilPattern(elve1, elve2, input)
-                    recipeList.elements.joinToString("").indexOf(input) `should equal` 2018
+                    recipeList.elements.toString().indexOf(input) `should equal` 20225578
                 }
             }
         }
