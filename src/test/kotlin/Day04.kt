@@ -253,7 +253,7 @@ class Day04Spec : Spek({
                 findMostAsleep(detectIntervals(inputEvents)) `should equal` 10
             }
             it("should find minute guard is most likely asleep") {
-                findMinuteMostLikelyAsleep(detectIntervals(inputEvents)[10]!!) `should equal` 24
+                findMinuteMostLikelyAsleep(detectIntervals(inputEvents).getValue(10)) `should equal` 24
             }
             it("should find solution for strategy 1") {
                 guardStrategy1(exampleInput) `should equal` 240

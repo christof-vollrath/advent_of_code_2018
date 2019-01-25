@@ -298,7 +298,7 @@ fun findFirstCollisionByMoving(railMap: RailMap, carts: Set<Cart>): FindFirstCol
 
 fun moveCartsAndFindCollision(carts: Set<Cart>, railMap: RailMap): Pair<Set<Cart>, List<Pair<Int, Int>>> {
     val mutableCarts = carts.sortedWith(compareBy({it.position.second}, {it.position.first})).toMutableList()
-    var collisions = mutableListOf<Pair<Int, Int>>()
+    val collisions = mutableListOf<Pair<Int, Int>>()
     mutableCarts.mapIndexed { index, cart ->
         val movedCart = moveCart(cart, railMap)
         if (movedCart.position in mutableCarts.map { it.position}) { // Already moved carts must be considered

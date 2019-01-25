@@ -243,9 +243,9 @@ fun movePosition(position: Position, velocity: Velocity) =
 
 
 fun printLightPoints(lightPoints: FloatingLightPoints): String {
-    return lightPoints.array.map { line ->
+    return lightPoints.array.joinToString("\n") { line ->
         line.joinToString("")
-    }.joinToString("\n")
+    }
 }
 
 

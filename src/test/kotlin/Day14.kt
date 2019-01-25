@@ -91,9 +91,10 @@ How many recipes appear on the scoreboard to the left of the score sequence in y
 
  */
 
-class RecipeList {
+class RecipeList(input: Int) {
     val elements = StringBuilder()
-    constructor(input: Int) {
+
+    init {
         elements.append(input.toString())
     }
 

@@ -101,8 +101,7 @@ data class LicenseNode(val metadata: List<Int>, val subNodes: List<LicenseNode> 
     else {
         metadata.map { index ->
             val node = subNodes.getOrNull(index-1)
-            if (node != null) node.calculateCheckData()
-            else 0
+            node?.calculateCheckData() ?: 0
         }.sum()
     }
 }
