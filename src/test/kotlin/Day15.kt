@@ -1,3 +1,10 @@
+import org.amshove.kluent.`should equal`
+import org.jetbrains.spek.api.Spek
+import org.jetbrains.spek.api.dsl.describe
+import org.jetbrains.spek.api.dsl.given
+import org.jetbrains.spek.api.dsl.it
+import java.lang.IllegalArgumentException
+
 /*
 --- Day 15: Beverage Bandits ---
 
@@ -347,3 +354,55 @@ Outcome: 20 * 937 = 18740
 
 What is the outcome of the combat described in your puzzle input?
  */
+
+class Day15Spec : Spek({
+
+    describe("part 1") {
+        describe("get units in fighting order") {
+            given("a fighting area") {
+                val fightingArea = parseFightingArea("""
+                    #######
+                    #.G.E.#
+                    #E.G.E#
+                    #.G.E.#
+                    #######
+                """.trimIndent())
+                it("should get the right order") {
+                    val unitList = fightingArea.getUnitsInFightingOrder()
+                    unitList `should equal` listOf(
+                            Goblin(2,1 ), Elf(4, 1),
+                            Elf(1, 2), Goblin(3, 2), Elf(5, 2),
+                            Goblin(2, 3), Elf(4, 3)
+                    )
+                }
+            }
+        }
+    }
+})
+
+fun List<List<Field?>>.getUnitsInFightingOrder() = this.flatMap { rows ->
+    rows.mapNotNull { field ->
+        if (field is Creature) field
+        else null
+    }
+}
+
+fun parseFightingArea(input: String): List<List<Field?>> =
+        input.split("\n").mapIndexed { y, line ->
+            line.mapIndexed { x, c ->
+                when(c) {
+                    'G' -> Goblin(x, y)
+                    'E' -> Elf(x, y)
+                    '#' -> Wall(x, y)
+                    '.' -> null
+                    else -> throw IllegalArgumentException("Illegal track element $c")
+                }
+            }
+        }
+
+abstract class Field(open val x: Int, open val y: Int)
+data class Wall(override val x: Int, override val y: Int) : Field(x, y)
+abstract class Creature(override val x: Int, override val y: Int) : Field(x, y)
+data class Goblin(override val x: Int, override val y: Int) : Creature(x, y)
+data class Elf(override val x: Int, override val y: Int) : Creature(x, y)
+
