@@ -377,6 +377,25 @@ class Day15Spec : Spek({
                 }
             }
         }
+        describe("get targets") {
+            given("a fighting area") {
+                val fightingArea = parseFightingArea("""
+                    #######
+                    #E..G.#
+                    #...#.#
+                    #.G.#G#
+                    #######
+                """.trimIndent())
+                it("should get all targets") {
+                    val unitList = (fightingArea[1][1] as Creature).getTargets(fightingArea)
+                    unitList `should equal` listOf(
+                            Goblin(4,1 ),
+                            Goblin(2, 3), Goblin(5, 3)
+                    )
+                }
+            }
+        }
+
     }
 })
 
@@ -402,7 +421,14 @@ fun parseFightingArea(input: String): List<List<Field?>> =
 
 abstract class Field(open val x: Int, open val y: Int)
 data class Wall(override val x: Int, override val y: Int) : Field(x, y)
-abstract class Creature(override val x: Int, override val y: Int) : Field(x, y)
+abstract class Creature(override val x: Int, override val y: Int) : Field(x, y) {
+    fun getTargets(fightingArea: List<List<Field?>>) =
+        fightingArea.flatMap { row ->
+            row.filter {field ->
+                field is Creature && field::class != this::class
+            }
+        }
+}
 data class Goblin(override val x: Int, override val y: Int) : Creature(x, y)
 data class Elf(override val x: Int, override val y: Int) : Creature(x, y)
 
