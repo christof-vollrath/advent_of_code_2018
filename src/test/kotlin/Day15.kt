@@ -395,6 +395,21 @@ class Day15Spec : Spek({
                 }
             }
         }
+        describe("get adjacent squares") {
+            given("a fighting area") {
+                val fightingArea = parseFightingArea("""
+                    #######
+                    #E..G.#
+                    #...#.#
+                    #.G.#G#
+                    #######
+                """.trimIndent())
+                it("should get all adjacent squares") {
+                    val unitList = (fightingArea[1][1] as Creature).getAdjacentSquares(fightingArea)
+                    unitList `should equal` listOf(Pair(2,1 ), Pair(1, 2))
+                }
+            }
+        }
 
     }
 })
@@ -419,6 +434,7 @@ fun parseFightingArea(input: String): List<List<Field?>> =
             }
         }
 
+val adjacentSquareOffsets = listOf( Pair(1, 0), Pair(0, -1), Pair(-1, 0), Pair(0, 1))
 abstract class Field(open val x: Int, open val y: Int)
 data class Wall(override val x: Int, override val y: Int) : Field(x, y)
 abstract class Creature(override val x: Int, override val y: Int) : Field(x, y) {
@@ -428,6 +444,13 @@ abstract class Creature(override val x: Int, override val y: Int) : Field(x, y) 
                 field is Creature && field::class != this::class
             }
         }
+
+    fun getAdjacentSquares(fightingArea: List<List<Field?>>) = adjacentSquareOffsets.mapNotNull { offset ->
+        val coord = Pair(x + offset.first, y + offset.second)
+        val field = fightingArea[coord.first][coord.second]
+        if (field == null) coord
+        else null
+    }
 }
 data class Goblin(override val x: Int, override val y: Int) : Creature(x, y)
 data class Elf(override val x: Int, override val y: Int) : Creature(x, y)
