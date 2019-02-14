@@ -387,7 +387,7 @@ class Day15Spec : Spek({
                     #######
                 """.trimIndent())
                 it("should get all targets") {
-                    val unitList = (fightingArea[1][1] as Creature).getTargets(fightingArea)
+                    val unitList = (fightingArea[1][1] as Creature).getTargetCreatures(fightingArea)
                     unitList `should equal` listOf(
                             Goblin(4,1 ),
                             Goblin(2, 3), Goblin(5, 3)
@@ -395,7 +395,7 @@ class Day15Spec : Spek({
                 }
             }
         }
-        describe("get adjacent squares") {
+        describe("get adjacent squares for a field") {
             given("a fighting area") {
                 val fightingArea = parseFightingArea("""
                     #######
@@ -406,13 +406,47 @@ class Day15Spec : Spek({
                 """.trimIndent())
                 it("should get all adjacent squares") {
                     val unitList = (fightingArea[1][1] as Creature).getAdjacentSquares(fightingArea)
-                    unitList `should equal` listOf(Pair(2,1 ), Pair(1, 2))
+                    unitList `should equal` listOf(Coord(2, 1), Coord(1, 2))
                 }
             }
         }
-
+        describe("get target squares to move to") {
+            given("a fighting area") {
+                val fightingArea = parseFightingArea("""
+                    #######
+                    #E..G.#
+                    #...#.#
+                    #.G.#G#
+                    #######
+                """.trimIndent())
+                it("should get all target squares") {
+                    val unitList = (fightingArea[1][1] as Creature).getTargetSquares(fightingArea)
+                    unitList `should equal` setOf(
+                            Coord(3, 1), Coord(5, 1),
+                            Coord(2, 2), Coord(5, 2),
+                            Coord(1, 3), Coord(3, 3))
+                }
+            }
+        }
+        describe("get nearest target squares to move to") {
+            given("a fighting area") {
+                val fightingArea = parseFightingArea("""
+                    #######
+                    #E..G.#
+                    #...#.#
+                    #.G.#G#
+                    #######
+                """.trimIndent())
+                it("should get the nearest target square") {
+                    val unitList = (fightingArea[1][1] as Creature).getNearestTargetSquarePath(fightingArea)
+                    unitList `should equal` listOf(Coord(2, 1), Coord(3, 1))
+                }
+            }
+        }
     }
 })
+
+typealias Coord = Pair<Int, Int>
 
 fun List<List<Field?>>.getUnitsInFightingOrder() = this.flatMap { rows ->
     rows.mapNotNull { field ->
@@ -434,22 +468,48 @@ fun parseFightingArea(input: String): List<List<Field?>> =
             }
         }
 
-val adjacentSquareOffsets = listOf( Pair(1, 0), Pair(0, -1), Pair(-1, 0), Pair(0, 1))
-abstract class Field(open val x: Int, open val y: Int)
+val adjacentSquareOffsets = listOf( Coord(1, 0), Coord(0, -1), Coord(-1, 0), Coord(0, 1))
+fun getAdjacentSquares(fightingArea: List<List<Field?>>, coord: Coord) = adjacentSquareOffsets.mapNotNull { offset ->
+    val adjacentCoord = Coord(coord.first + offset.first, coord.second + offset.second)
+    val field = fightingArea[adjacentCoord.second][adjacentCoord.first]
+    if (field == null) adjacentCoord
+    else null
+}
+
+abstract class Field(open val x: Int, open val y: Int) {
+    fun getAdjacentSquares(fightingArea: List<List<Field?>>) = getAdjacentSquares(fightingArea, Coord(x, y))
+}
+
 data class Wall(override val x: Int, override val y: Int) : Field(x, y)
 abstract class Creature(override val x: Int, override val y: Int) : Field(x, y) {
-    fun getTargets(fightingArea: List<List<Field?>>) =
+    fun getTargetCreatures(fightingArea: List<List<Field?>>): List<Creature> =
         fightingArea.flatMap { row ->
-            row.filter {field ->
-                field is Creature && field::class != this::class
-            }
+            row.filterIsInstance<Creature>()
+                .filter { field -> field::class != this::class }
         }
 
-    fun getAdjacentSquares(fightingArea: List<List<Field?>>) = adjacentSquareOffsets.mapNotNull { offset ->
-        val coord = Pair(x + offset.first, y + offset.second)
-        val field = fightingArea[coord.first][coord.second]
-        if (field == null) coord
-        else null
+    fun getTargetSquares(fightingArea: List<List<Field?>>) = getTargetCreatures(fightingArea).flatMap { target ->
+        target.getAdjacentSquares(fightingArea)
+    }.toSet()
+
+    fun getNearestTargetSquarePath(fightingArea: List<List<Field?>>): List<Coord> {
+        val targetSquares = getTargetSquares(fightingArea)
+        val adjacentSquares = getAdjacentSquares(fightingArea)
+        val start = adjacentSquares.map { listOf(it) }
+        return getNearestTargetSquarePath(fightingArea, start, targetSquares, emptySet())
+    }
+
+    private tailrec fun getNearestTargetSquarePath(fightingArea: List<List<Field?>>, interimResults: List<List<Coord>>, targets: Set<Coord>, alreadyChecked: Set<Coord>): List<Coord> {
+        interimResults.forEach {
+            if (it.last() in targets) return it
+        }
+        val nextAlreadyChecked = alreadyChecked + interimResults.map { it.last() }
+        val nextInterimResults = interimResults.flatMap { path ->
+            val last = path.last()
+            val adjacentSquares = getAdjacentSquares(fightingArea, last)
+            adjacentSquares.filter { it !in alreadyChecked }.map { path + it}
+        }
+        return getNearestTargetSquarePath(fightingArea, nextInterimResults, targets, nextAlreadyChecked)
     }
 }
 data class Goblin(override val x: Int, override val y: Int) : Creature(x, y)
