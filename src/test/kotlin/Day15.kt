@@ -3,6 +3,7 @@ import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
+import org.jetbrains.spek.api.dsl.on
 import java.lang.IllegalArgumentException
 
 /*
@@ -358,6 +359,21 @@ What is the outcome of the combat described in your puzzle input?
 class Day15Spec : Spek({
 
     describe("part 1") {
+        describe("parse and print fighting area") {
+            given("a fighting area") {
+                val fightingAreaString = """
+                    #######
+                    #.G.E.#
+                    #E.G.E#
+                    #.G.E.#
+                    #######
+                """.trimIndent()
+                val fightingArea = parseFightingArea(fightingAreaString)
+                it("should be printed correctly") {
+                    fightingArea.print() `should equal` fightingAreaString
+                }
+            }
+        }
         describe("get units in fighting order") {
             given("a fighting area") {
                 val fightingArea = parseFightingArea("""
@@ -419,12 +435,23 @@ class Day15Spec : Spek({
                     #.G.#G#
                     #######
                 """.trimIndent())
-                it("should get all target squares") {
+                on("get arget squares") {
                     val unitList = (fightingArea[1][1] as Creature).getTargetSquares(fightingArea)
-                    unitList `should equal` setOf(
-                            Coord(3, 1), Coord(5, 1),
-                            Coord(2, 2), Coord(5, 2),
-                            Coord(1, 3), Coord(3, 3))
+                    it("should get all target squares") {
+                        unitList `should equal` setOf(
+                                Coord(3, 1), Coord(5, 1),
+                                Coord(2, 2), Coord(5, 2),
+                                Coord(1, 3), Coord(3, 3))
+                    }
+                    it("should print result") {
+                        fightingArea.print(unitList, '?') `should equal` """
+                            #######
+                            #E.?G?#
+                            #.?.#?#
+                            #?G?#G#
+                            #######
+                        """.trimIndent()
+                    }
                 }
             }
         }
@@ -437,14 +464,54 @@ class Day15Spec : Spek({
                     #.G.#G#
                     #######
                 """.trimIndent())
-                it("should get the nearest target square") {
+                on("should get the nearest target square") {
                     val unitList = (fightingArea[1][1] as Creature).getNearestTargetSquarePath(fightingArea)
-                    unitList `should equal` listOf(Coord(2, 1), Coord(3, 1))
+                    it("should get the nearest target square") {
+                        unitList `should equal` listOf(Coord(2, 1), Coord(3, 1))
+                    }
+                    it("should print the nearest target square") {
+                        fightingArea.print(setOf(unitList.last()), '+') `should equal` """
+                            #######
+                            #E.+G.#
+                            #...#.#
+                            #.G.#G#
+                            #######
+                        """.trimIndent()
+                    }
+                }
+            }
+            given("a fighting area with one elf and one goblin") {
+                val fightingArea = parseFightingArea("""
+                    #######
+                    #.E...#
+                    #.....#
+                    #...G.#
+                    #######
+                """.trimIndent())
+                on("should get the nearest target square") {
+                    val unitList = (fightingArea[1][2] as Creature).getNearestTargetSquarePath(fightingArea)
+                    it("should find the right first step") {
+                        unitList.first() `should equal` Coord(3, 1)
+                    }
                 }
             }
         }
     }
 })
+
+private fun List<List<Field?>>.print(overlay: Set<Coord>? = null, overlayChar: Char? = null) = this.mapIndexed { y, rows ->
+    rows.mapIndexed { x, field ->
+        if (overlay != null && Pair(x, y) in overlay) overlayChar
+        else
+            when(field) {
+                is Goblin -> 'G'
+                is Elf -> 'E'
+                is Wall -> '#'
+                null -> '.'
+                else -> '!'
+            }
+    }.joinToString("")
+}.joinToString("\n")
 
 typealias Coord = Pair<Int, Int>
 
