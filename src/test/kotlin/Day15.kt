@@ -384,8 +384,8 @@ class Day15Spec : Spek({
                     #######
                 """.trimIndent())
                 it("should get the right order") {
-                    val unitList = fightingArea.getUnitsInFightingOrder()
-                    unitList `should equal` listOf(
+                    val creatureList = fightingArea.getCreaturesInFightingOrder()
+                    creatureList `should equal` listOf(
                             Goblin(2,1 ), Elf(4, 1),
                             Elf(1, 2), Goblin(3, 2), Elf(5, 2),
                             Goblin(2, 3), Elf(4, 3)
@@ -403,8 +403,8 @@ class Day15Spec : Spek({
                     #######
                 """.trimIndent())
                 it("should get all targets") {
-                    val unitList = (fightingArea[1][1] as Creature).getTargetCreatures(fightingArea)
-                    unitList `should equal` listOf(
+                    val targetList = (fightingArea[1][1] as Creature).getTargetCreatures(fightingArea)
+                    targetList `should equal` listOf(
                             Goblin(4,1 ),
                             Goblin(2, 3), Goblin(5, 3)
                     )
@@ -421,8 +421,8 @@ class Day15Spec : Spek({
                     #######
                 """.trimIndent())
                 it("should get all adjacent squares") {
-                    val unitList = (fightingArea[1][1] as Creature).getAdjacentSquares(fightingArea)
-                    unitList `should equal` listOf(Coord(2, 1), Coord(1, 2))
+                    val adjacentSquares = (fightingArea[1][1] as Creature).getAdjacentSquares(fightingArea)
+                    adjacentSquares `should equal` listOf(Coord(2, 1), Coord(1, 2))
                 }
             }
         }
@@ -436,15 +436,15 @@ class Day15Spec : Spek({
                     #######
                 """.trimIndent())
                 on("get arget squares") {
-                    val unitList = (fightingArea[1][1] as Creature).getTargetSquares(fightingArea)
+                    val targetSquares = (fightingArea[1][1] as Creature).getTargetSquares(fightingArea)
                     it("should get all target squares") {
-                        unitList `should equal` setOf(
+                        targetSquares `should equal` setOf(
                                 Coord(3, 1), Coord(5, 1),
                                 Coord(2, 2), Coord(5, 2),
                                 Coord(1, 3), Coord(3, 3))
                     }
                     it("should print result") {
-                        fightingArea.print(unitList, '?') `should equal` """
+                        fightingArea.print(targetSquares, '?') `should equal` """
                             #######
                             #E.?G?#
                             #.?.#?#
@@ -464,13 +464,13 @@ class Day15Spec : Spek({
                     #.G.#G#
                     #######
                 """.trimIndent())
-                on("should get the nearest target square") {
-                    val unitList = (fightingArea[1][1] as Creature).getNearestTargetSquarePath(fightingArea)
-                    it("should get the nearest target square") {
-                        unitList `should equal` listOf(Coord(2, 1), Coord(3, 1))
+                on("should get the nearest target square path") {
+                    val targetPath = (fightingArea[1][1] as Creature).getNearestTargetSquarePath(fightingArea)
+                    it("should get the right path") {
+                        targetPath `should equal` listOf(Coord(2, 1), Coord(3, 1))
                     }
                     it("should print the nearest target square") {
-                        fightingArea.print(setOf(unitList.last()), '+') `should equal` """
+                        fightingArea.print(setOf(targetPath.last()), '+') `should equal` """
                             #######
                             #E.+G.#
                             #...#.#
@@ -488,16 +488,91 @@ class Day15Spec : Spek({
                     #...G.#
                     #######
                 """.trimIndent())
-                on("should get the nearest target square") {
-                    val unitList = (fightingArea[1][2] as Creature).getNearestTargetSquarePath(fightingArea)
+                on("get the nearest target square") {
+                    val targetPath = (fightingArea[1][2] as Creature).getNearestTargetSquarePath(fightingArea)
                     it("should find the right first step") {
-                        unitList.first() `should equal` Coord(3, 1)
+                        targetPath.first() `should equal` Coord(3, 1)
                     }
                 }
+            }
+            given("a fighting area with one elf and one goblin to see one movement") {
+                val fightingArea = parseFightingArea("""
+                #######
+                #.E...#
+                #.....#
+                #...G.#
+                #######
+            """.trimIndent())
+                on("one movement") {
+                    val nextFightingArea = fightingArea.movement()
+                    it("should have moved") {
+                        nextFightingArea.print() `should equal` """
+                            #######
+                            #..E..#
+                            #...G.#
+                            #.....#
+                            #######
+                        """.trimIndent()
+                    }
+                    val elf = nextFightingArea[1][3] as Elf
+                    elf.x `should equal` 3
+                    elf.y `should equal` 1
+                    val goblin = nextFightingArea[2][4] as Goblin
+                    goblin.x `should equal` 4
+                    goblin.y `should equal` 2
+                }
+            }
+            given("a big fighting area") {
+                val fightingArea = parseFightingArea("""
+                    #########
+                    #G..G..G#
+                    #.......#
+                    #.......#
+                    #G..E..G#
+                    #.......#
+                    #.......#
+                    #G..G..G#
+                    #########
+                """.trimIndent())
+                on("moving three times") {
+//                    val result = fightingArea.movement().movement().movement()
+                    val result = fightingArea.movement()
+                    it("should have the right result") {
+                        result.print() `should equal` """
+                            #########
+                            #.......#
+                            #..GGG..#
+                            #..GEG..#
+                            #G..G...#
+                            #......G#
+                            #.......#
+                            #.......#
+                            #########
+                        """.trimIndent()
+                    }
+                }
+
             }
         }
     }
 })
+
+private fun List<List<Field?>>.movement(): List<List<Field?>> {
+    val creatures = getCreaturesInFightingOrder()
+    val movedCreaturesMap = creatures.map { creature ->
+        creature.move(this)
+        Pair(creature.x, creature.y) to creature
+    }.toMap()
+    return mapIndexed { y, rows ->
+        rows.mapIndexed { x, field ->
+            when {
+                Pair(x, y) in movedCreaturesMap -> movedCreaturesMap[Pair(x, y)]
+                field is Creature -> null
+                else -> field
+            }
+        }
+    }
+}
 
 private fun List<List<Field?>>.print(overlay: Set<Coord>? = null, overlayChar: Char? = null) = this.mapIndexed { y, rows ->
     rows.mapIndexed { x, field ->
@@ -515,7 +590,7 @@ private fun List<List<Field?>>.print(overlay: Set<Coord>? = null, overlayChar: C
 
 typealias Coord = Pair<Int, Int>
 
-fun List<List<Field?>>.getUnitsInFightingOrder() = this.flatMap { rows ->
+fun List<List<Field?>>.getCreaturesInFightingOrder() = this.flatMap { rows ->
     rows.mapNotNull { field ->
         if (field is Creature) field
         else null
@@ -548,7 +623,7 @@ abstract class Field(open val x: Int, open val y: Int) {
 }
 
 data class Wall(override val x: Int, override val y: Int) : Field(x, y)
-abstract class Creature(override val x: Int, override val y: Int) : Field(x, y) {
+sealed class Creature(override var x: Int, override var y: Int) : Field(x, y) {
     fun getTargetCreatures(fightingArea: List<List<Field?>>): List<Creature> =
         fightingArea.flatMap { row ->
             row.filterIsInstance<Creature>()
@@ -578,7 +653,17 @@ abstract class Creature(override val x: Int, override val y: Int) : Field(x, y) 
         }
         return getNearestTargetSquarePath(fightingArea, nextInterimResults, targets, nextAlreadyChecked)
     }
+
+    fun move(fightingArea: List<List<Field?>>) {
+        val path = getNearestTargetSquarePath(fightingArea)
+        if (path.isNotEmpty()) {
+            val first = path.first()
+            x = first.first
+            y = first.second
+        }
+    }
 }
-data class Goblin(override val x: Int, override val y: Int) : Creature(x, y)
-data class Elf(override val x: Int, override val y: Int) : Creature(x, y)
+
+data class Goblin(override var x: Int, override var y: Int) : Creature(x, y)
+data class Elf(override var x: Int, override var y: Int) : Creature(x, y)
 
