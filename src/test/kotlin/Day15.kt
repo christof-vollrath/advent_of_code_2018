@@ -51,7 +51,7 @@ Otherwise, since it is not in range of a target, it moves.
 
 To move, the unit first considers the squares that are in range and determines which of those squares it
 could reach in the fewest steps.
-A step is a single movement to any adjacent (immediately up, down, left, or right) open (.) square.
+A step is a single move to any adjacent (immediately up, down, left, or right) open (.) square.
 Units cannot move into walls or other units.
 The unit does this while considering the current positions of units
 and does not do any prediction about where units will be later.
@@ -98,7 +98,7 @@ and so the first in reading order is chosen (+).
  and would leave the Elf 2 steps from being in range of the Goblin.
  Because the step which is first in reading order is chosen, the Elf moves right one square.
 
-Here's a larger example of movement:
+Here's a larger example of move:
 
 Initially:
 #########
@@ -488,10 +488,35 @@ class Day15Spec : Spek({
                     #...G.#
                     #######
                 """.trimIndent())
-                on("get the nearest target square") {
+                on("get the nearest target square for the elf") {
                     val targetPath = (fightingArea[1][2] as Creature).getNearestTargetSquarePath(fightingArea)
                     it("should find the right first step") {
                         targetPath.first() `should equal` Coord(3, 1)
+                    }
+                }
+                on("get the nearest target square for the goblin") {
+                    val targetPath = (fightingArea[3][4] as Creature).getNearestTargetSquarePath(fightingArea)
+                    it("should find the right first step") {
+                        targetPath.first() `should equal` Coord(4, 2)
+                    }
+                }
+            }
+            given("a big fighting area with one elf and goblins") {
+                val fightingArea = parseFightingArea("""
+                    #########
+                    #.G...G.#
+                    #...G...#
+                    #...E..G#
+                    #.G.....#
+                    #.......#
+                    #.......#
+                    #G..G..G#
+                    #########
+                """.trimIndent())
+                on("get the nearest target square for one goblin") {
+                    val targetPath = (fightingArea[7][1] as Creature).getNearestTargetSquarePath(fightingArea)
+                    it("should find the right first step") {
+                        targetPath.first() `should equal` Coord(1, 6)
                     }
                 }
             }
@@ -504,9 +529,9 @@ class Day15Spec : Spek({
                 #######
             """.trimIndent())
                 on("one movement") {
-                    val nextFightingArea = fightingArea.movement()
+                    fightingArea.move()
                     it("should have moved") {
-                        nextFightingArea.print() `should equal` """
+                        fightingArea.print() `should equal` """
                             #######
                             #..E..#
                             #...G.#
@@ -514,12 +539,12 @@ class Day15Spec : Spek({
                             #######
                         """.trimIndent()
                     }
-                    val elf = nextFightingArea[1][3] as Elf
-                    elf.x `should equal` 3
-                    elf.y `should equal` 1
-                    val goblin = nextFightingArea[2][4] as Goblin
-                    goblin.x `should equal` 4
-                    goblin.y `should equal` 2
+                    val elf = fightingArea[1][3] as Elf
+                    elf.coord.x `should equal` 3
+                    elf.coord.y `should equal` 1
+                    val goblin = fightingArea[2][4] as Goblin
+                    goblin.coord.x `should equal` 4
+                    goblin.coord.y `should equal` 2
                 }
             }
             given("a big fighting area") {
@@ -535,21 +560,21 @@ class Day15Spec : Spek({
                     #########
                 """.trimIndent())
                 on("moving three times") {
-//                    val result = fightingArea.movement().movement().movement()
-                    val result = fightingArea.movement()
-                    it("should have the right result") {
-                        result.print() `should equal` """
+                    fightingArea.move()
+                    it("should have the right result after move 1") {
+                        fightingArea.print() `should equal` """
                             #########
+                            #.G...G.#
+                            #...G...#
+                            #...E..G#
+                            #.G.....#
                             #.......#
-                            #..GGG..#
-                            #..GEG..#
-                            #G..G...#
-                            #......G#
-                            #.......#
+                            #G..G..G#
                             #.......#
                             #########
                         """.trimIndent()
                     }
+                    // TODO more moves
                 }
 
             }
@@ -557,26 +582,20 @@ class Day15Spec : Spek({
     }
 })
 
-private fun List<List<Field?>>.movement(): List<List<Field?>> {
-    val creatures = getCreaturesInFightingOrder()
-    val movedCreaturesMap = creatures.map { creature ->
+typealias FightingArea = MutableList<MutableList<Field?>>
+private fun FightingArea.move() {
+    val creaturesInFightingOrder = getCreaturesInFightingOrder()
+    creaturesInFightingOrder.forEach { creature ->
+        val previousCoord = creature.coord
         creature.move(this)
-        Pair(creature.x, creature.y) to creature
-    }.toMap()
-    return mapIndexed { y, rows ->
-        rows.mapIndexed { x, field ->
-            when {
-                Pair(x, y) in movedCreaturesMap -> movedCreaturesMap[Pair(x, y)]
-                field is Creature -> null
-                else -> field
-            }
-        }
+        this[previousCoord.y][previousCoord.x] = null
+        this[creature.coord.y][creature.coord.x] = creature
     }
 }
 
-private fun List<List<Field?>>.print(overlay: Set<Coord>? = null, overlayChar: Char? = null) = this.mapIndexed { y, rows ->
+private fun FightingArea.print(overlay: Set<Coord>? = null, overlayChar: Char? = null) = this.mapIndexed { y, rows ->
     rows.mapIndexed { x, field ->
-        if (overlay != null && Pair(x, y) in overlay) overlayChar
+        if (overlay != null && Coord(x, y) in overlay) overlayChar
         else
             when(field) {
                 is Goblin -> 'G'
@@ -588,16 +607,16 @@ private fun List<List<Field?>>.print(overlay: Set<Coord>? = null, overlayChar: C
     }.joinToString("")
 }.joinToString("\n")
 
-typealias Coord = Pair<Int, Int>
+data class Coord(val x: Int, val y: Int)
 
-fun List<List<Field?>>.getCreaturesInFightingOrder() = this.flatMap { rows ->
+fun FightingArea.getCreaturesInFightingOrder() = this.flatMap { rows ->
     rows.mapNotNull { field ->
         if (field is Creature) field
         else null
     }
 }
 
-fun parseFightingArea(input: String): List<List<Field?>> =
+fun parseFightingArea(input: String): FightingArea =
         input.split("\n").mapIndexed { y, line ->
             line.mapIndexed { x, c ->
                 when(c) {
@@ -607,41 +626,45 @@ fun parseFightingArea(input: String): List<List<Field?>> =
                     '.' -> null
                     else -> throw IllegalArgumentException("Illegal track element $c")
                 }
-            }
-        }
+            }.toMutableList()
+        }.toMutableList()
 
-val adjacentSquareOffsets = listOf( Coord(1, 0), Coord(0, -1), Coord(-1, 0), Coord(0, 1))
-fun getAdjacentSquares(fightingArea: List<List<Field?>>, coord: Coord) = adjacentSquareOffsets.mapNotNull { offset ->
-    val adjacentCoord = Coord(coord.first + offset.first, coord.second + offset.second)
-    val field = fightingArea[adjacentCoord.second][adjacentCoord.first]
+//val adjacentSquareOffsets = listOf( Coord(1, 0), Coord(0, -1), Coord(-1, 0), Coord(0, 1))
+//val adjacentSquareOffsets = listOf( Coord(0, -1), Coord(0, 1), Coord(-1, 0), Coord(1, 0))
+val adjacentSquareOffsets = listOf( Coord(0, -1), Coord(1, 0), Coord(0, 1), Coord(-1, 0))
+fun getAdjacentSquares(fightingArea: FightingArea, coord: Coord) = adjacentSquareOffsets.mapNotNull { offset ->
+    val adjacentCoord = Coord(coord.x + offset.x, coord.y + offset.y)
+    val field = fightingArea[adjacentCoord.y][adjacentCoord.x]
     if (field == null) adjacentCoord
     else null
 }
 
-abstract class Field(open val x: Int, open val y: Int) {
-    fun getAdjacentSquares(fightingArea: List<List<Field?>>) = getAdjacentSquares(fightingArea, Coord(x, y))
+abstract class Field(open val coord: Coord) {
+    fun getAdjacentSquares(fightingArea: FightingArea) = getAdjacentSquares(fightingArea, coord)
 }
 
-data class Wall(override val x: Int, override val y: Int) : Field(x, y)
-sealed class Creature(override var x: Int, override var y: Int) : Field(x, y) {
-    fun getTargetCreatures(fightingArea: List<List<Field?>>): List<Creature> =
+data class Wall(override val coord: Coord) : Field(coord) {
+    constructor(x: Int, y: Int) : this(Coord(x, y))
+}
+sealed class Creature(override var coord: Coord) : Field(coord) {
+    fun getTargetCreatures(fightingArea: FightingArea): List<Creature> =
         fightingArea.flatMap { row ->
             row.filterIsInstance<Creature>()
                 .filter { field -> field::class != this::class }
         }
 
-    fun getTargetSquares(fightingArea: List<List<Field?>>) = getTargetCreatures(fightingArea).flatMap { target ->
+    fun getTargetSquares(fightingArea: FightingArea) = getTargetCreatures(fightingArea).flatMap { target ->
         target.getAdjacentSquares(fightingArea)
     }.toSet()
 
-    fun getNearestTargetSquarePath(fightingArea: List<List<Field?>>): List<Coord> {
+    fun getNearestTargetSquarePath(fightingArea: FightingArea): List<Coord> {
         val targetSquares = getTargetSquares(fightingArea)
         val adjacentSquares = getAdjacentSquares(fightingArea)
         val start = adjacentSquares.map { listOf(it) }
         return getNearestTargetSquarePath(fightingArea, start, targetSquares, emptySet())
     }
 
-    private tailrec fun getNearestTargetSquarePath(fightingArea: List<List<Field?>>, interimResults: List<List<Coord>>, targets: Set<Coord>, alreadyChecked: Set<Coord>): List<Coord> {
+    private tailrec fun getNearestTargetSquarePath(fightingArea: FightingArea, interimResults: List<List<Coord>>, targets: Set<Coord>, alreadyChecked: Set<Coord>): List<Coord> {
         interimResults.forEach {
             if (it.last() in targets) return it
         }
@@ -654,16 +677,19 @@ sealed class Creature(override var x: Int, override var y: Int) : Field(x, y) {
         return getNearestTargetSquarePath(fightingArea, nextInterimResults, targets, nextAlreadyChecked)
     }
 
-    fun move(fightingArea: List<List<Field?>>) {
+    fun move(fightingArea: FightingArea) {
         val path = getNearestTargetSquarePath(fightingArea)
         if (path.isNotEmpty()) {
             val first = path.first()
-            x = first.first
-            y = first.second
+            coord = Coord(first.x, first.y)
         }
     }
 }
 
-data class Goblin(override var x: Int, override var y: Int) : Creature(x, y)
-data class Elf(override var x: Int, override var y: Int) : Creature(x, y)
+data class Goblin(override var coord: Coord) : Creature(coord) {
+    constructor(x: Int, y: Int) : this(Coord(x, y))
+}
+data class Elf(override var coord: Coord) : Creature(coord) {
+    constructor(x: Int, y: Int) : this(Coord(x, y))
+}
 
