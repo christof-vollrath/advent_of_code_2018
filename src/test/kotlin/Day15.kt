@@ -547,6 +547,27 @@ class Day15Spec : Spek({
                     goblin.coord.y `should equal` 2
                 }
             }
+            given("a fighting area with one elf and one goblin standing close to each other") {
+                val fightingArea = parseFightingArea("""
+                #######
+                #.....#
+                #..G..#
+                #..E..#
+                #######
+            """.trimIndent())
+                on("one movement") {
+                    fightingArea.move()
+                    it("should have a moved any creature") {
+                        fightingArea.print() `should equal` """
+                            #######
+                            #.....#
+                            #..G..#
+                            #..E..#
+                            #######
+                        """.trimIndent()
+                    }
+                }
+            }
             given("a big fighting area") {
                 val fightingArea = parseFightingArea("""
                     #########
@@ -559,7 +580,7 @@ class Day15Spec : Spek({
                     #G..G..G#
                     #########
                 """.trimIndent())
-                on("moving three times") {
+                on("moving first times") {
                     fightingArea.move()
                     it("should have the right result after move 1") {
                         fightingArea.print() `should equal` """
@@ -574,9 +595,39 @@ class Day15Spec : Spek({
                             #########
                         """.trimIndent()
                     }
-                    // TODO more moves
                 }
-
+                on("moving second times") {
+                    fightingArea.move()
+                    it("should have the right result after move 2") {
+                        fightingArea.print() `should equal` """
+                            #########
+                            #..G.G..#
+                            #...G...#
+                            #.G.E.G.#
+                            #.......#
+                            #G..G..G#
+                            #.......#
+                            #.......#
+                            #########
+                        """.trimIndent()
+                    }
+                }
+                on("moving third times") {
+                    fightingArea.move()
+                    it("should have the right result after move 3") {
+                        fightingArea.print() `should equal` """
+                            #########
+                            #.......#
+                            #..GGG..#
+                            #..GEG..#
+                            #G..G...#
+                            #......G#
+                            #.......#
+                            #.......#
+                            #########
+                        """.trimIndent()
+                    }
+                }
             }
         }
     }
@@ -615,7 +666,6 @@ fun FightingArea.getCreaturesInFightingOrder() = this.flatMap { rows ->
         else null
     }
 }
-
 fun parseFightingArea(input: String): FightingArea =
         input.split("\n").mapIndexed { y, line ->
             line.mapIndexed { x, c ->
@@ -629,14 +679,17 @@ fun parseFightingArea(input: String): FightingArea =
             }.toMutableList()
         }.toMutableList()
 
-//val adjacentSquareOffsets = listOf( Coord(1, 0), Coord(0, -1), Coord(-1, 0), Coord(0, 1))
-//val adjacentSquareOffsets = listOf( Coord(0, -1), Coord(0, 1), Coord(-1, 0), Coord(1, 0))
-val adjacentSquareOffsets = listOf( Coord(0, -1), Coord(1, 0), Coord(0, 1), Coord(-1, 0))
+val adjacentSquareOffsets = listOf( Coord(0, -1), Coord(-1, 0), Coord(1, 0), Coord(0, 1))
 fun getAdjacentSquares(fightingArea: FightingArea, coord: Coord) = adjacentSquareOffsets.mapNotNull { offset ->
     val adjacentCoord = Coord(coord.x + offset.x, coord.y + offset.y)
     val field = fightingArea[adjacentCoord.y][adjacentCoord.x]
     if (field == null) adjacentCoord
     else null
+}
+
+fun isAdjacentSquares(coord1: Coord, coord2: Coord) = adjacentSquareOffsets.any { offset ->
+    val adjacentCoord = Coord(coord1.x + offset.x, coord1.y + offset.y)
+    coord2 == adjacentCoord
 }
 
 abstract class Field(open val coord: Coord) {
@@ -658,6 +711,9 @@ sealed class Creature(override var coord: Coord) : Field(coord) {
     }.toSet()
 
     fun getNearestTargetSquarePath(fightingArea: FightingArea): List<Coord> {
+        getTargetCreatures(fightingArea).forEach { creature ->
+            if (isAdjacentSquares(creature.coord, coord)) return emptyList() // Already near target
+        }
         val targetSquares = getTargetSquares(fightingArea)
         val adjacentSquares = getAdjacentSquares(fightingArea)
         val start = adjacentSquares.map { listOf(it) }
@@ -665,6 +721,7 @@ sealed class Creature(override var coord: Coord) : Field(coord) {
     }
 
     private tailrec fun getNearestTargetSquarePath(fightingArea: FightingArea, interimResults: List<List<Coord>>, targets: Set<Coord>, alreadyChecked: Set<Coord>): List<Coord> {
+        if (interimResults.isEmpty()) return emptyList()
         interimResults.forEach {
             if (it.last() in targets) return it
         }
