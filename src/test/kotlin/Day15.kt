@@ -557,7 +557,7 @@ class Day15Spec : Spek({
             """.trimIndent())
                 on("one movement") {
                     fightingArea.move()
-                    it("should have a moved any creature") {
+                    it("should not have moved any creature") {
                         fightingArea.print() `should equal` """
                             #######
                             #.....#
@@ -568,7 +568,7 @@ class Day15Spec : Spek({
                     }
                 }
             }
-            given("a big fighting area") {
+            given("a big fighting area to get three movements") {
                 val fightingArea = parseFightingArea("""
                     #########
                     #G..G..G#
@@ -629,6 +629,72 @@ class Day15Spec : Spek({
                     }
                 }
             }
+            given("a fighting area to see one elf fighting") {
+                val fightingArea = parseFightingArea("""
+                    #######
+                    #G....#
+                    #..G..#
+                    #..EG.#
+                    #..G..#
+                    #...G.#
+                    #######
+                """.trimIndent())
+                (fightingArea[1][1] as Creature).hitPoints = 9
+                (fightingArea[2][3] as Creature).hitPoints = 4
+                (fightingArea[3][4] as Creature).hitPoints = 2
+                (fightingArea[4][3] as Creature).hitPoints = 2
+                (fightingArea[5][4] as Creature).hitPoints = 1
+                val elf = fightingArea[3][3] as Elf
+                val expectedAttackedGoblin = fightingArea[3][4] as Goblin
+                on("elf fight") {
+                    elf.fight(fightingArea)
+                    it("should have fought with goblin and decreased its hit points") {
+                        expectedAttackedGoblin.hitPoints `should equal` -1
+                    }
+                    it("should have removed the killed goblin from the fighting area") {
+                        fightingArea.print() `should equal` """
+                            #######
+                            #G....#
+                            #..G..#
+                            #..E..#
+                            #..G..#
+                            #...G.#
+                            #######
+                        """.trimIndent()
+                    }
+                }
+            }
+            given("a fighting area to see some fights") {
+                val fightingArea = parseFightingArea("""
+                    #######
+                    #.G...#
+                    #...EG#
+                    #.#.#G#
+                    #..G#E#
+                    #.....#
+                    #######
+                """.trimIndent())
+                on("first fight") {
+                    fightingArea.moveAndFight()
+                    it("should have fought round 1") {
+                        fightingArea.print() `should equal` """
+                            #######
+                            #..G..#
+                            #...EG#
+                            #.#G#G#
+                            #...#E#
+                            #.....#
+                            #######
+                        """.trimIndent()
+                    }
+                    (fightingArea[1][3] as Goblin).hitPoints `should equal` 200
+                    (fightingArea[2][4] as Elf).hitPoints `should equal` 197
+                    (fightingArea[2][5] as Goblin).hitPoints `should equal` 197
+                    (fightingArea[3][3] as Goblin).hitPoints `should equal` 200
+                    (fightingArea[3][5] as Goblin).hitPoints `should equal` 197
+                    (fightingArea[4][5] as Elf).hitPoints `should equal` 197
+                }
+            }
         }
     }
 })
@@ -643,6 +709,10 @@ private fun FightingArea.move() {
         this[creature.coord.y][creature.coord.x] = creature
     }
 }
+private fun FightingArea.moveAndFight() {
+    TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+}
+
 
 private fun FightingArea.print(overlay: Set<Coord>? = null, overlayChar: Char? = null) = this.mapIndexed { y, rows ->
     rows.mapIndexed { x, field ->
@@ -699,21 +769,23 @@ abstract class Field(open val coord: Coord) {
 data class Wall(override val coord: Coord) : Field(coord) {
     constructor(x: Int, y: Int) : this(Coord(x, y))
 }
-sealed class Creature(override var coord: Coord) : Field(coord) {
+sealed class Creature(override var coord: Coord, var hitPoints: Int = 200, val attackPower: Int = 3) : Field(coord) {
+
     fun getTargetCreatures(fightingArea: FightingArea): List<Creature> =
         fightingArea.flatMap { row ->
             row.filterIsInstance<Creature>()
                 .filter { field -> field::class != this::class }
         }
 
+    fun getAdjacentTargetCreatures(fightingArea: FightingArea) = getTargetCreatures(fightingArea)
+            .filter { targetCreature -> isAdjacentSquares(targetCreature.coord, coord) }
+
     fun getTargetSquares(fightingArea: FightingArea) = getTargetCreatures(fightingArea).flatMap { target ->
         target.getAdjacentSquares(fightingArea)
     }.toSet()
 
     fun getNearestTargetSquarePath(fightingArea: FightingArea): List<Coord> {
-        getTargetCreatures(fightingArea).forEach { creature ->
-            if (isAdjacentSquares(creature.coord, coord)) return emptyList() // Already near target
-        }
+        if (getAdjacentTargetCreatures(fightingArea).isNotEmpty()) return emptyList() // Already near target
         val targetSquares = getTargetSquares(fightingArea)
         val adjacentSquares = getAdjacentSquares(fightingArea)
         val start = adjacentSquares.map { listOf(it) }
@@ -739,6 +811,15 @@ sealed class Creature(override var coord: Coord) : Field(coord) {
         if (path.isNotEmpty()) {
             val first = path.first()
             coord = Coord(first.x, first.y)
+        }
+    }
+
+    fun fight(fightingArea: FightingArea) {
+        val target = getAdjacentTargetCreatures(fightingArea).minBy { it.hitPoints }
+        if (target != null) {
+            target.hitPoints -= attackPower
+            if (target.hitPoints < 0)
+                fightingArea[target.coord.y][target.coord.x] = null // Killed creature should be removed from fighting area
         }
     }
 }
