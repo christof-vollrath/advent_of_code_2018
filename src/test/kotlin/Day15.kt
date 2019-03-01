@@ -694,6 +694,63 @@ class Day15Spec : Spek({
                     (fightingArea[3][5] as Goblin).hitPoints `should equal` 197
                     (fightingArea[4][5] as Elf).hitPoints `should equal` 197
                 }
+                on("second fights") {
+                    fightingArea.moveAndFight()
+                    it("should have fought round 23") {
+                        fightingArea.print() `should equal` """
+                            #######
+                            #...G.#
+                            #..GEG#
+                            #.#.#G#
+                            #...#E#
+                            #.....#
+                            #######
+                        """.trimIndent()
+                    }
+                    (fightingArea[1][4] as Goblin).hitPoints `should equal` 200
+                    (fightingArea[2][3] as Goblin).hitPoints `should equal` 200
+                    (fightingArea[2][4] as Elf).hitPoints `should equal` 188
+                    (fightingArea[2][5] as Goblin).hitPoints `should equal` 194
+                    (fightingArea[3][5] as Goblin).hitPoints `should equal` 194
+                    (fightingArea[4][5] as Elf).hitPoints `should equal` 194
+                }
+                on("twenty one more fights") {
+                    repeat(21) { fightingArea.moveAndFight() }
+                    it("should have fought round 23") {
+                        fightingArea.print() `should equal` """
+                            #######
+                            #...G.#
+                            #..G.G#
+                            #.#.#G#
+                            #...#E#
+                            #.....#
+                            #######
+                        """.trimIndent()
+                    }
+                    (fightingArea[1][4] as Goblin).hitPoints `should equal` 200
+                    (fightingArea[2][3] as Goblin).hitPoints `should equal` 200
+                    (fightingArea[2][5] as Goblin).hitPoints `should equal` 131
+                    (fightingArea[3][5] as Goblin).hitPoints `should equal` 131
+                    (fightingArea[4][5] as Elf).hitPoints `should equal` 131
+                }
+                on("twenty four more fights") {
+                    repeat(24) { fightingArea.moveAndFight() }
+                    it("should have fought round 47") {
+                        fightingArea.print() `should equal` """
+                            #######
+                            #G....#
+                            #.G...#
+                            #.#.#G#
+                            #...#.#
+                            #....G#
+                            #######
+                        """.trimIndent()
+                    }
+                    (fightingArea[1][1] as Goblin).hitPoints `should equal` 200
+                    (fightingArea[2][2] as Goblin).hitPoints `should equal` 131
+                    (fightingArea[3][5] as Goblin).hitPoints `should equal` 59
+                    (fightingArea[5][5] as Goblin).hitPoints `should equal` 200
+                }
             }
         }
     }
@@ -710,9 +767,15 @@ private fun FightingArea.move() {
     }
 }
 private fun FightingArea.moveAndFight() {
-    TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+    move()
+    fight()
 }
-
+private fun FightingArea.fight() {
+    val creaturesInFightingOrder = getCreaturesInFightingOrder()
+    creaturesInFightingOrder.forEach { creature ->
+        creature.fight(this)
+    }
+}
 
 private fun FightingArea.print(overlay: Set<Coord>? = null, overlayChar: Char? = null) = this.mapIndexed { y, rows ->
     rows.mapIndexed { x, field ->
