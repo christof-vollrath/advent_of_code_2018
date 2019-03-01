@@ -1,9 +1,8 @@
 import org.amshove.kluent.`should equal`
 import org.jetbrains.spek.api.Spek
-import org.jetbrains.spek.api.dsl.describe
-import org.jetbrains.spek.api.dsl.given
-import org.jetbrains.spek.api.dsl.it
-import org.jetbrains.spek.api.dsl.on
+import org.jetbrains.spek.api.dsl.*
+import org.jetbrains.spek.data_driven.data
+import org.jetbrains.spek.data_driven.on as onData
 import java.lang.IllegalArgumentException
 
 /*
@@ -386,7 +385,7 @@ class Day15Spec : Spek({
                 it("should get the right order") {
                     val creatureList = fightingArea.getCreaturesInFightingOrder()
                     creatureList `should equal` listOf(
-                            Goblin(2,1 ), Elf(4, 1),
+                            Goblin(2, 1), Elf(4, 1),
                             Elf(1, 2), Goblin(3, 2), Elf(5, 2),
                             Goblin(2, 3), Elf(4, 3)
                     )
@@ -405,7 +404,7 @@ class Day15Spec : Spek({
                 it("should get all targets") {
                     val targetList = (fightingArea[1][1] as Creature).getTargetCreatures(fightingArea)
                     targetList `should equal` listOf(
-                            Goblin(4,1 ),
+                            Goblin(4, 1),
                             Goblin(2, 3), Goblin(5, 3)
                     )
                 }
@@ -520,6 +519,8 @@ class Day15Spec : Spek({
                     }
                 }
             }
+        }
+        describe("get nearest target squares to move to") {
             given("a fighting area with one elf and one goblin to see one movement") {
                 val fightingArea = parseFightingArea("""
                 #######
@@ -629,6 +630,8 @@ class Day15Spec : Spek({
                     }
                 }
             }
+        }
+        describe("creature fighting") {
             given("a fighting area to see one elf fighting") {
                 val fightingArea = parseFightingArea("""
                     #######
@@ -664,6 +667,8 @@ class Day15Spec : Spek({
                     }
                 }
             }
+        }
+        describe("all fighting") {
             given("a fighting area to see some fights") {
                 val fightingArea = parseFightingArea("""
                     #######
@@ -686,13 +691,13 @@ class Day15Spec : Spek({
                             #.....#
                             #######
                         """.trimIndent()
+                        (fightingArea[1][3] as Goblin).hitPoints `should equal` 200
+                        (fightingArea[2][4] as Elf).hitPoints `should equal` 197
+                        (fightingArea[2][5] as Goblin).hitPoints `should equal` 197
+                        (fightingArea[3][3] as Goblin).hitPoints `should equal` 200
+                        (fightingArea[3][5] as Goblin).hitPoints `should equal` 197
+                        (fightingArea[4][5] as Elf).hitPoints `should equal` 197
                     }
-                    (fightingArea[1][3] as Goblin).hitPoints `should equal` 200
-                    (fightingArea[2][4] as Elf).hitPoints `should equal` 197
-                    (fightingArea[2][5] as Goblin).hitPoints `should equal` 197
-                    (fightingArea[3][3] as Goblin).hitPoints `should equal` 200
-                    (fightingArea[3][5] as Goblin).hitPoints `should equal` 197
-                    (fightingArea[4][5] as Elf).hitPoints `should equal` 197
                 }
                 on("second fights") {
                     fightingArea.moveAndFight()
@@ -706,13 +711,13 @@ class Day15Spec : Spek({
                             #.....#
                             #######
                         """.trimIndent()
+                        (fightingArea[1][4] as Goblin).hitPoints `should equal` 200
+                        (fightingArea[2][3] as Goblin).hitPoints `should equal` 200
+                        (fightingArea[2][4] as Elf).hitPoints `should equal` 188
+                        (fightingArea[2][5] as Goblin).hitPoints `should equal` 194
+                        (fightingArea[3][5] as Goblin).hitPoints `should equal` 194
+                        (fightingArea[4][5] as Elf).hitPoints `should equal` 194
                     }
-                    (fightingArea[1][4] as Goblin).hitPoints `should equal` 200
-                    (fightingArea[2][3] as Goblin).hitPoints `should equal` 200
-                    (fightingArea[2][4] as Elf).hitPoints `should equal` 188
-                    (fightingArea[2][5] as Goblin).hitPoints `should equal` 194
-                    (fightingArea[3][5] as Goblin).hitPoints `should equal` 194
-                    (fightingArea[4][5] as Elf).hitPoints `should equal` 194
                 }
                 on("twenty one more fights") {
                     repeat(21) { fightingArea.moveAndFight() }
@@ -726,12 +731,12 @@ class Day15Spec : Spek({
                             #.....#
                             #######
                         """.trimIndent()
+                        (fightingArea[1][4] as Goblin).hitPoints `should equal` 200
+                        (fightingArea[2][3] as Goblin).hitPoints `should equal` 200
+                        (fightingArea[2][5] as Goblin).hitPoints `should equal` 131
+                        (fightingArea[3][5] as Goblin).hitPoints `should equal` 131
+                        (fightingArea[4][5] as Elf).hitPoints `should equal` 131
                     }
-                    (fightingArea[1][4] as Goblin).hitPoints `should equal` 200
-                    (fightingArea[2][3] as Goblin).hitPoints `should equal` 200
-                    (fightingArea[2][5] as Goblin).hitPoints `should equal` 131
-                    (fightingArea[3][5] as Goblin).hitPoints `should equal` 131
-                    (fightingArea[4][5] as Elf).hitPoints `should equal` 131
                 }
                 on("twenty four more fights") {
                     repeat(24) { fightingArea.moveAndFight() }
@@ -745,16 +750,87 @@ class Day15Spec : Spek({
                             #....G#
                             #######
                         """.trimIndent()
+                        (fightingArea[1][1] as Goblin).hitPoints `should equal` 200
+                        (fightingArea[2][2] as Goblin).hitPoints `should equal` 131
+                        (fightingArea[3][5] as Goblin).hitPoints `should equal` 59
+                        (fightingArea[5][5] as Goblin).hitPoints `should equal` 200
                     }
-                    (fightingArea[1][1] as Goblin).hitPoints `should equal` 200
-                    (fightingArea[2][2] as Goblin).hitPoints `should equal` 131
-                    (fightingArea[3][5] as Goblin).hitPoints `should equal` 59
-                    (fightingArea[5][5] as Goblin).hitPoints `should equal` 200
                 }
             }
         }
+        describe("fight to the end") {
+            given("a fighting area to start with") {
+                val fightingArea = parseFightingArea("""
+                    #######
+                    #.G...#
+                    #...EG#
+                    #.#.#G#
+                    #..G#E#
+                    #.....#
+                    #######
+                """.trimIndent())
+                on("start battle") {
+                    val nrRounds = fightingArea.battle()
+                    it("should have Goblins winning") {
+                        fightingArea.print() `should equal` """
+                            #######
+                            #G....#
+                            #.G...#
+                            #.#.#G#
+                            #...#.#
+                            #....G#
+                            #######
+                        """.trimIndent()
+                    }
+                    it("should have fought the right number of rounds") {
+                        nrRounds `should equal` 47
+                    }
+                    it ("should calculate the right outcome") {
+                        battleOutcome(nrRounds, fightingArea) `should equal` 27730
+                    }
+                }
+            }
+            given("examples") {
+                val testData = arrayOf(
+                        data("""
+                            #######
+                            #G..#E#
+                            #E#E.E#
+                            #G.##.#
+                            #...#E#
+                            #...E.#
+                            #######
+                        """.trimIndent(), 36334)
+                )
+
+                onData("fighting area %s", with = *testData) { input, expected ->
+                    val fightingArea = parseFightingArea(input)
+                    val nrRounds = fightingArea.battle()
+                    it("returns $expected") {
+                        println("$nrRounds:")
+                        println(fightingArea.print())
+                        battleOutcome(nrRounds, fightingArea) `should equal` expected
+                    }
+                }
+            }
+        }
+        describe("exercise") {
+            given("exercise input") {
+                val input = readResource("day15Input.txt")
+                val fightingArea = parseFightingArea(input)
+                xon("battle") {
+                    val nrRounds = fightingArea.battle()
+                    it("should find result") {
+                        battleOutcome(nrRounds, fightingArea) `should equal` 0
+                    }
+                }
+            }
+        }
+
     }
 })
+
+fun battleOutcome(nrRounds: Int, fightingArea: FightingArea) = fightingArea.getCreaturesInFightingOrder().sumBy { it.hitPoints } * nrRounds
 
 typealias FightingArea = MutableList<MutableList<Field?>>
 private fun FightingArea.move() {
@@ -776,6 +852,22 @@ private fun FightingArea.fight() {
         creature.fight(this)
     }
 }
+private fun FightingArea.battle(): Int {
+    var nrRounds = 0
+    while(true) {
+        val creaturesInFightingOrder = getCreaturesInFightingOrder()
+        if (isBattleOver(creaturesInFightingOrder)) return nrRounds
+        moveAndFight()
+        nrRounds++
+    }
+}
+
+fun isBattleOver(creatures: List<Creature>): Boolean {
+    val containsGoblin = creatures.any { it is Goblin }
+    val containsElf = creatures.any { it is Elf }
+    return containsGoblin xor containsElf
+}
+
 
 private fun FightingArea.print(overlay: Set<Coord>? = null, overlayChar: Char? = null) = this.mapIndexed { y, rows ->
     rows.mapIndexed { x, field ->
