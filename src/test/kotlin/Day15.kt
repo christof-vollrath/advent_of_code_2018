@@ -800,7 +800,46 @@ class Day15Spec : Spek({
                             #...#E#
                             #...E.#
                             #######
-                        """.trimIndent(), 36334)
+                        """.trimIndent(), 36334),
+                        data("""
+                            #######
+                            #E..EG#
+                            #.#G.E#
+                            #E.##E#
+                            #G..#.#
+                            #..E#.#
+                            #######
+                        """.trimIndent(), 39514),
+                        data("""
+                            #######
+                            #E.G#.#
+                            #.#G..#
+                            #G.#.G#
+                            #G..#.#
+                            #...E.#
+                            #######
+                        """.trimIndent(), 27755),
+                        data("""
+                            #######
+                            #.E...#
+                            #.#..G#
+                            #.###.#
+                            #E#G#G#
+                            #...#G#
+                            #######
+                        """.trimIndent(), 28944),
+                        data("""
+                            #########
+                            #G......#
+                            #.E.#...#
+                            #..##..G#
+                            #...##..#
+                            #...#...#
+                            #.G...G.#
+                            #.....G.#
+                            #########
+                        """.trimIndent(), 18740)
+
                 )
 
                 onData("fighting area %s", with = *testData) { input, expected ->
@@ -810,6 +849,48 @@ class Day15Spec : Spek({
                         println("$nrRounds:")
                         println(fightingArea.print())
                         battleOutcome(nrRounds, fightingArea) `should equal` expected
+                    }
+                }
+            }
+            describe("some fight") {
+                given("a fighting area to start with") {
+                    val fightingArea = parseFightingArea("""
+                    #######
+                    #G..#E#
+                    #E#E.E#
+                    #G.##.#
+                    #...#E#
+                    #...E.#
+                    #######
+                """.trimIndent())
+                    on("37 full rounds") {
+                        repeat(38) {
+                            fightingArea.moveAndFight()
+                            println(fightingArea.print())
+                            print(battleOutcome(37, fightingArea))
+                            println(fightingArea.getCreaturesInFightingOrder())
+                        }
+                    }
+                }
+            }
+            describe("another fight") {
+                given("a fighting area to start with") {
+                    val fightingArea = parseFightingArea("""
+                    #######
+                    #GE.#.#
+                    #E#...#
+                    #G.##.#
+                    #...#E#
+                    #...E.#
+                    #######
+                """.trimIndent())
+                    on("37 full rounds") {
+                        repeat(38) {
+                            fightingArea.moveAndFight()
+                            println(fightingArea.print())
+                            print(battleOutcome(37, fightingArea))
+                            println(fightingArea.getCreaturesInFightingOrder())
+                        }
                     }
                 }
             }
@@ -845,11 +926,19 @@ private fun FightingArea.move() {
 private fun FightingArea.moveAndFight() {
     move()
     fight()
+//    kill()
 }
 private fun FightingArea.fight() {
     val creaturesInFightingOrder = getCreaturesInFightingOrder()
     creaturesInFightingOrder.forEach { creature ->
         creature.fight(this)
+    }
+}
+private fun FightingArea.kill() {
+    val creaturesInFightingOrder = getCreaturesInFightingOrder()
+    creaturesInFightingOrder.forEach { creature ->
+        if (creature.hitPoints <= 0)
+            this[creature.coord.y][creature.coord.x] = null // Killed creature should be removed from fighting area
     }
 }
 private fun FightingArea.battle(): Int {
@@ -924,13 +1013,11 @@ abstract class Field(open val coord: Coord) {
 data class Wall(override val coord: Coord) : Field(coord) {
     constructor(x: Int, y: Int) : this(Coord(x, y))
 }
-sealed class Creature(override var coord: Coord, var hitPoints: Int = 200, val attackPower: Int = 3) : Field(coord) {
+sealed class Creature(override var coord: Coord, open var hitPoints: Int = 200, val attackPower: Int = 3) : Field(coord) {
 
     fun getTargetCreatures(fightingArea: FightingArea): List<Creature> =
-        fightingArea.flatMap { row ->
-            row.filterIsInstance<Creature>()
-                .filter { field -> field::class != this::class }
-        }
+            fightingArea.getCreaturesInFightingOrder()
+                        .filter { field -> field::class != this::class }
 
     fun getAdjacentTargetCreatures(fightingArea: FightingArea) = getTargetCreatures(fightingArea)
             .filter { targetCreature -> isAdjacentSquares(targetCreature.coord, coord) }
@@ -973,16 +1060,16 @@ sealed class Creature(override var coord: Coord, var hitPoints: Int = 200, val a
         val target = getAdjacentTargetCreatures(fightingArea).minBy { it.hitPoints }
         if (target != null) {
             target.hitPoints -= attackPower
-            if (target.hitPoints < 0)
+            if (target.hitPoints <= 0)
                 fightingArea[target.coord.y][target.coord.x] = null // Killed creature should be removed from fighting area
         }
     }
 }
 
-data class Goblin(override var coord: Coord) : Creature(coord) {
+data class Goblin(override var coord: Coord, override var hitPoints: Int = 200) : Creature(coord) {
     constructor(x: Int, y: Int) : this(Coord(x, y))
 }
-data class Elf(override var coord: Coord) : Creature(coord) {
+data class Elf(override var coord: Coord, override var hitPoints: Int = 200) : Creature(coord) {
     constructor(x: Int, y: Int) : this(Coord(x, y))
 }
 
