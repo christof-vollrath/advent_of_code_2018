@@ -790,6 +790,54 @@ class Day15Spec : Spek({
                     }
                 }
             }
+            given("a special case where killing an elf seems to be difficult") {
+                val fightingArea = parseFightingArea("""
+                    ####
+                    #GE#
+                    ####
+                """.trimIndent())
+                val elf = fightingArea[1][2] as Elf
+                elf.hitPoints = 3
+                val nrRounds = fightingArea.battle()
+                it("should have Goblin killing the elf") {
+                    fightingArea.print() `should equal` """
+                            ####
+                            #G.#
+                            ####
+                        """.trimIndent()
+                }
+                it("should have fought the right number of rounds") {
+                    nrRounds `should equal` 1
+                }
+                it ("should calculate the right outcome") {
+                    battleOutcome(nrRounds, fightingArea) `should equal` 200
+                }
+
+            }
+            given("a variant of the special case where killing the elf works") {
+                val fightingArea = parseFightingArea("""
+                    ####
+                    #EG#
+                    ####
+                """.trimIndent())
+                val elf = fightingArea[1][1] as Elf
+                elf.hitPoints = 3
+                val nrRounds = fightingArea.battle()
+                it("should have Goblin killing the elf") {
+                    fightingArea.print() `should equal` """
+                            ####
+                            #.G#
+                            ####
+                        """.trimIndent()
+                }
+                it("should have fought the right number of rounds") {
+                    nrRounds `should equal` 1
+                }
+                it ("should calculate the right outcome") {
+                    battleOutcome(nrRounds, fightingArea) `should equal` 197
+                }
+
+            }
             given("examples") {
                 val testData = arrayOf(
                         data("""
@@ -924,22 +972,17 @@ private fun FightingArea.move() {
     }
 }
 private fun FightingArea.moveAndFight() {
-    move()
-    fight()
-//    kill()
-}
-private fun FightingArea.fight() {
     val creaturesInFightingOrder = getCreaturesInFightingOrder()
     creaturesInFightingOrder.forEach { creature ->
-        creature.fight(this)
+        if (creature.hitPoints > 0) { // Could be killed during fights before
+            val previousCoord = creature.coord
+            creature.move(this)
+            this[previousCoord.y][previousCoord.x] = null
+            this[creature.coord.y][creature.coord.x] = creature
+            creature.fight(this)
+        }
     }
-}
-private fun FightingArea.kill() {
-    val creaturesInFightingOrder = getCreaturesInFightingOrder()
-    creaturesInFightingOrder.forEach { creature ->
-        if (creature.hitPoints <= 0)
-            this[creature.coord.y][creature.coord.x] = null // Killed creature should be removed from fighting area
-    }
+    println(print())
 }
 private fun FightingArea.battle(): Int {
     var nrRounds = 0
@@ -1060,8 +1103,9 @@ sealed class Creature(override var coord: Coord, open var hitPoints: Int = 200, 
         val target = getAdjacentTargetCreatures(fightingArea).minBy { it.hitPoints }
         if (target != null) {
             target.hitPoints -= attackPower
-            if (target.hitPoints <= 0)
+            if (target.hitPoints <= 0) {
                 fightingArea[target.coord.y][target.coord.x] = null // Killed creature should be removed from fighting area
+            }
         }
     }
 }
