@@ -4,6 +4,7 @@ import org.jetbrains.spek.api.dsl.*
 import org.jetbrains.spek.data_driven.data
 import org.jetbrains.spek.data_driven.on as onData
 import java.lang.IllegalArgumentException
+import kotlin.reflect.KClass
 
 /*
 --- Day 15: Beverage Bandits ---
@@ -467,20 +468,42 @@ private fun FightingArea.moveAndFight() {
         }
     }
 }
-private fun FightingArea.battle(): Int {
+
+fun FightingArea.battle(): BattleResult {
     var nrRounds = 0
     while(true) {
         val creaturesInFightingOrder = getCreaturesInFightingOrder()
-        if (isBattleOver(creaturesInFightingOrder)) return nrRounds /*- 1*/ // not counting the round in which combat ends
+        val winner = checkWinner(creaturesInFightingOrder)
+        if (winner != null) return BattleResult(winner, nrRounds) /*- 1*/ // not counting the round in which combat ends
         moveAndFight()
         nrRounds++
     }
 }
 
-fun isBattleOver(creatures: List<Creature>): Boolean {
+fun FightingArea.cautiousBattle(): BattleResult {
+    var nrRounds = 0
+    while(true) {
+        val creaturesInFightingOrder = getCreaturesInFightingOrder()
+        val winner = checkWinner(creaturesInFightingOrder)
+        if (winner != null) return BattleResult(winner, nrRounds) /*- 1*/ // not counting the round in which combat ends
+        val cautiousBeforeFight = creaturesInFightingOrder.filter { it is Elf }.size
+        moveAndFight()
+        val cautiousAfterFight = getCreaturesInFightingOrder().filter { it is Elf }.size
+        if (cautiousAfterFight < cautiousBeforeFight) return BattleResult(Goblin::class, 0)
+        nrRounds++
+    }
+}
+
+data class BattleResult(val winner: KClass<out Creature>, val nrRounds: Int)
+
+fun checkWinner(creatures: List<Creature>): KClass<out Creature>? {
     val containsGoblin = creatures.any { it is Goblin }
     val containsElf = creatures.any { it is Elf }
-    return containsGoblin xor containsElf
+    return when {
+        containsGoblin && !containsElf -> Goblin::class
+        containsElf && !containsGoblin -> Elf::class
+        else -> null
+    }
 }
 
 
@@ -606,6 +629,19 @@ data class Elf(override var coord: Coord, override var hitPoints: Int = 200, ove
     constructor(x: Int, y: Int, attackPower: Int = 3) : this(Coord(x, y), attackPower = attackPower)
 }
 
+fun findNeededElfPower(fightingAreaString: String): NeededElfPowerResult {
+    var elfPower = 4
+    while(true) {
+        val fightingArea = parseFightingArea(fightingAreaString, elfPower = elfPower)
+        val battleResult = fightingArea.cautiousBattle()
+        println("elfPower=$elfPower")
+        println(fightingArea.print())
+        if (battleResult.winner == Elf::class) return NeededElfPowerResult(elfPower, battleResult, fightingArea)
+        elfPower++
+    }
+}
+
+data class NeededElfPowerResult(val elfPower: Int, val battleResult: BattleResult, val fightingArea: FightingArea)
 
 class Day15Spec : Spek({
 
@@ -1022,7 +1058,7 @@ class Day15Spec : Spek({
                     #######
                 """.trimIndent())
                 on("start battle") {
-                    val nrRounds = fightingArea.battle()
+                    val nrRounds = fightingArea.battle().nrRounds
                     it("should have Goblins winning") {
                         fightingArea.print() `should equal` """
                             #######
@@ -1050,7 +1086,7 @@ class Day15Spec : Spek({
                 """.trimIndent())
                 val elf = fightingArea[1][2] as Elf
                 elf.hitPoints = 3
-                val nrRounds = fightingArea.battle()
+                val nrRounds = fightingArea.battle().nrRounds
                 it("should have Goblin killing the elf") {
                     fightingArea.print() `should equal` """
                             ####
@@ -1074,7 +1110,7 @@ class Day15Spec : Spek({
                 """.trimIndent())
                 val elf = fightingArea[1][1] as Elf
                 elf.hitPoints = 3
-                val nrRounds = fightingArea.battle()
+                val nrRounds = fightingArea.battle().nrRounds
                 it("should have Goblin killing the elf") {
                     fightingArea.print() `should equal` """
                             ####
@@ -1145,7 +1181,7 @@ class Day15Spec : Spek({
 
                 onData("fighting area %s", with = *testData) { input, expected ->
                     val fightingArea = parseFightingArea(input)
-                    val nrRounds = fightingArea.battle()
+                    val nrRounds = fightingArea.battle().nrRounds
                     it("returns $expected") {
                         battleOutcome(nrRounds, fightingArea) `should equal` expected
                     }
@@ -1157,7 +1193,7 @@ class Day15Spec : Spek({
                 val input = readResource("day15Input.txt")
                 val fightingArea = parseFightingArea(input)
                 on("battle") {
-                    val nrRounds = fightingArea.battle()
+                    val nrRounds = fightingArea.battle().nrRounds
                     println(fightingArea.print())
                     it("should find result") {
                         battleOutcome(nrRounds, fightingArea) `should equal` 227290
@@ -1168,7 +1204,7 @@ class Day15Spec : Spek({
     }
     describe("part 2") {
         describe("fight to the end with increased battle power") {
-            given("a fighting area to start with with increase elf power") {
+            given("a fighting area to start with and increased elf power") {
                 val fightingArea = parseFightingArea("""
                     #######
                     #.G...#
@@ -1179,7 +1215,7 @@ class Day15Spec : Spek({
                     #######
                 """.trimIndent(), elfPower = 15)
                 on("start battle") {
-                    val nrRounds = fightingArea.battle()
+                    val nrRounds = fightingArea.battle().nrRounds
                     it("should have Goblins winning") {
                         fightingArea.print() `should equal` """
                             #######
@@ -1198,6 +1234,65 @@ class Day15Spec : Spek({
                         battleOutcome(nrRounds, fightingArea) `should equal` 5160 /*4988*/
                     }
                 }
+            }
+            given("a fighting area to start with to increase elf power") {
+                val fightingAreaString = """
+                    #######
+                    #.G...#
+                    #...EG#
+                    #.#.#G#
+                    #..G#E#
+                    #.....#
+                    #######
+                """.trimIndent()
+                on("cautious battle with normal power") {
+                    val fightingArea = parseFightingArea(fightingAreaString)
+                    val battleResult = fightingArea.cautiousBattle()
+                    it("should abort with goblins winning") {
+                        battleResult.winner `should equal` Goblin::class
+                        battleResult.nrRounds `should equal` 0
+                    }
+                }
+                on("cautious battle with increased but not enough power") {
+                    val fightingArea = parseFightingArea(fightingAreaString, elfPower = 14)
+                    val battleResult = fightingArea.cautiousBattle()
+                    it("should abort with goblins winning") {
+                        battleResult.winner `should equal` Goblin::class
+                        battleResult.nrRounds `should equal` 0
+                    }
+                }
+                on("cautious battle with enough power") {
+                    val fightingArea = parseFightingArea(fightingAreaString, elfPower = 15)
+                    val battleResult = fightingArea.cautiousBattle()
+                    it("should abort with goblins winning") {
+                        battleResult.winner `should equal` Elf::class
+                        battleResult.nrRounds `should equal` 30
+                    }
+                }
+                on("find needed elf power") {
+                    val neededElfPowerResult = findNeededElfPower(fightingAreaString)
+                    it("should find the right amount of elf power") {
+                        neededElfPowerResult.elfPower `should equal` 15
+                        neededElfPowerResult.battleResult `should equal` BattleResult(Elf::class, 30)
+                    }
+                }
+            }
+        }
+        describe("exercise") {
+            given("exercise input") {
+                val input = readResource("day15Input.txt")
+                on("find needed elf power") {
+                    val neededElfPowerResult = findNeededElfPower(input)
+                    println(neededElfPowerResult.fightingArea.print())
+                    it("should find the right amount of elf power") {
+                        neededElfPowerResult.elfPower `should equal` 25
+                        neededElfPowerResult.battleResult `should equal` BattleResult(Elf::class, 38)
+                    }
+                    it("should find result") {
+                        battleOutcome(neededElfPowerResult.battleResult.nrRounds, neededElfPowerResult.fightingArea) `should equal` 58444
+                    }
+                 }
+
             }
         }
     }
