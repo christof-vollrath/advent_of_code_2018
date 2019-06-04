@@ -456,26 +456,27 @@ private fun FightingArea.move() {
         this[creature.coord.y][creature.coord.x] = creature
     }
 }
-private fun FightingArea.moveAndFight() {
+private fun FightingArea.moveAndFight(): KClass<out Creature>? {
     val creaturesInFightingOrder = getCreaturesInFightingOrder()
     creaturesInFightingOrder.forEach { creature ->
         if (creature.hitPoints > 0) { // Could be killed during fights before
-            val previousCoord = creature.coord
-            creature.move(this)
-            this[previousCoord.y][previousCoord.x] = null
-            this[creature.coord.y][creature.coord.x] = creature
-            creature.fight(this)
+            val winner = creature.moveAndFight(this)
+            if (winner != null) return winner
         }
     }
+    return null
 }
 
 fun FightingArea.battle(): BattleResult {
     var nrRounds = 0
     while(true) {
+        println(nrRounds)
+        println(print())
         val creaturesInFightingOrder = getCreaturesInFightingOrder()
         val winner = checkWinner(creaturesInFightingOrder)
         if (winner != null) return BattleResult(winner, nrRounds) /*- 1*/ // not counting the round in which combat ends
-        moveAndFight()
+        val winner2 = moveAndFight()
+        if (winner2 != null) return BattleResult(winner2, nrRounds)
         nrRounds++
     }
 }
@@ -484,10 +485,12 @@ fun FightingArea.cautiousBattle(): BattleResult {
     var nrRounds = 0
     while(true) {
         val creaturesInFightingOrder = getCreaturesInFightingOrder()
-        val winner = checkWinner(creaturesInFightingOrder)
-        if (winner != null) return BattleResult(winner, nrRounds) /*- 1*/ // not counting the round in which combat ends
+//        val winner = checkWinner(creaturesInFightingOrder)
+//        if (winner != null) return BattleResult(winner, nrRounds) /*- 1*/ // not counting the round in which combat ends
         val cautiousBeforeFight = creaturesInFightingOrder.filter { it is Elf }.size
         moveAndFight()
+        val winner = checkWinner(getCreaturesInFightingOrder())
+        if (winner != null) return BattleResult(winner, nrRounds) /*- 1*/ // not counting the round in which combat ends
         val cautiousAfterFight = getCreaturesInFightingOrder().filter { it is Elf }.size
         if (cautiousAfterFight < cautiousBeforeFight) return BattleResult(Goblin::class, 0)
         nrRounds++
@@ -499,6 +502,7 @@ data class BattleResult(val winner: KClass<out Creature>, val nrRounds: Int)
 fun checkWinner(creatures: List<Creature>): KClass<out Creature>? {
     val containsGoblin = creatures.any { it is Goblin }
     val containsElf = creatures.any { it is Elf }
+    println("$containsGoblin $containsElf")
     return when {
         containsGoblin && !containsElf -> Goblin::class
         containsElf && !containsGoblin -> Elf::class
@@ -604,6 +608,7 @@ sealed class Creature(override var coord: Coord, open var hitPoints: Int = 200, 
     }
 
     fun move(fightingArea: FightingArea) {
+        println("move")
         val path = getNearestTargetSquarePath(fightingArea)
         if (path.isNotEmpty()) {
             val first = path.first()
@@ -612,13 +617,25 @@ sealed class Creature(override var coord: Coord, open var hitPoints: Int = 200, 
     }
 
     fun fight(fightingArea: FightingArea) {
+        println("fight")
         val target = getAdjacentTargetCreatures(fightingArea).minBy { it.hitPoints }
         if (target != null) {
             target.hitPoints -= attackPower
+            println("hitPoints=${target.hitPoints}")
             if (target.hitPoints <= 0) {
                 fightingArea[target.coord.y][target.coord.x] = null // Killed creature should be removed from fighting area
             }
         }
+    }
+
+    fun moveAndFight(fightingArea: FightingArea): KClass<out Creature>? {
+        if (getTargetCreatures(fightingArea).isEmpty()) return this::class
+        val previousCoord = coord
+        move(fightingArea)
+        fightingArea[previousCoord.y][previousCoord.x] = null
+        fightingArea[coord.y][coord.x] = this
+        fight(fightingArea)
+        return null
     }
 }
 
@@ -1137,7 +1154,7 @@ class Day15Spec : Spek({
                             #...#E#
                             #...E.#
                             #######
-                        """.trimIndent(), 37316 /*36334*/),
+                        """.trimIndent(), 36334),
                         data("""
                             #######
                             #E..EG#
@@ -1146,7 +1163,7 @@ class Day15Spec : Spek({
                             #G..#.#
                             #..E#.#
                             #######
-                        """.trimIndent(), 40373 /*39514*/),
+                        """.trimIndent(), 39514),
                         data("""
                             #######
                             #E.G#.#
@@ -1155,7 +1172,7 @@ class Day15Spec : Spek({
                             #G..#.#
                             #...E.#
                             #######
-                        """.trimIndent(), 28548 /*27755*/),
+                        """.trimIndent(), 27755),
                         data("""
                             #######
                             #.E...#
@@ -1164,7 +1181,7 @@ class Day15Spec : Spek({
                             #E#G#G#
                             #...#G#
                             #######
-                        """.trimIndent(), 29480 /*28944*/),
+                        """.trimIndent(), 28944),
                         data("""
                             #########
                             #G......#
@@ -1175,7 +1192,7 @@ class Day15Spec : Spek({
                             #.G...G.#
                             #.....G.#
                             #########
-                        """.trimIndent(), 19677 /*18740*/)
+                        """.trimIndent(), 18740)
 
                 )
 
@@ -1186,6 +1203,22 @@ class Day15Spec : Spek({
                         battleOutcome(nrRounds, fightingArea) `should equal` expected
                     }
                 }
+            }
+        }
+        describe("analyse differences in result") {
+            given("example") {
+                val fightingArea = parseFightingArea("""
+                            #######
+                            #G..#E#
+                            #E#E.E#
+                            #G.##.#
+                            #...#E#
+                            #...E.#
+                            #######
+                        """.trimIndent())
+                val nrRounds = fightingArea.battle().nrRounds
+                println("nrRounds=$nrRounds")
+                println("battleOutcome=${battleOutcome(nrRounds, fightingArea)}")
             }
         }
         describe("exercise") {
