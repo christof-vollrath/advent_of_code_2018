@@ -456,60 +456,29 @@ private fun FightingArea.move() {
         this[creature.coord.y][creature.coord.x] = creature
     }
 }
-private fun FightingArea.moveAndFight(): KClass<out Creature>? {
+private fun FightingArea.moveAndFight(cautious: Boolean = false): KClass<out Creature>? {
     val creaturesInFightingOrder = getCreaturesInFightingOrder()
     creaturesInFightingOrder.forEach { creature ->
         if (creature.hitPoints > 0) { // Could be killed during fights before
-            val winner = creature.moveAndFight(this)
+            val winner = creature.moveAndFight(this, cautious)
             if (winner != null) return winner
         }
     }
     return null
 }
 
-fun FightingArea.battle(): BattleResult {
+fun FightingArea.battle(cautious: Boolean = false): BattleResult {
     var nrRounds = 0
     while(true) {
         println(nrRounds)
         println(print())
-        val creaturesInFightingOrder = getCreaturesInFightingOrder()
-        val winner = checkWinner(creaturesInFightingOrder)
-        if (winner != null) return BattleResult(winner, nrRounds) /*- 1*/ // not counting the round in which combat ends
-        val winner2 = moveAndFight()
-        if (winner2 != null) return BattleResult(winner2, nrRounds)
-        nrRounds++
-    }
-}
-
-fun FightingArea.cautiousBattle(): BattleResult {
-    var nrRounds = 0
-    while(true) {
-        val creaturesInFightingOrder = getCreaturesInFightingOrder()
-//        val winner = checkWinner(creaturesInFightingOrder)
-//        if (winner != null) return BattleResult(winner, nrRounds) /*- 1*/ // not counting the round in which combat ends
-        val cautiousBeforeFight = creaturesInFightingOrder.filter { it is Elf }.size
-        moveAndFight()
-        val winner = checkWinner(getCreaturesInFightingOrder())
-        if (winner != null) return BattleResult(winner, nrRounds) /*- 1*/ // not counting the round in which combat ends
-        val cautiousAfterFight = getCreaturesInFightingOrder().filter { it is Elf }.size
-        if (cautiousAfterFight < cautiousBeforeFight) return BattleResult(Goblin::class, 0)
+        val winner = moveAndFight(cautious)
+        if (winner != null) return BattleResult(winner, nrRounds)
         nrRounds++
     }
 }
 
 data class BattleResult(val winner: KClass<out Creature>, val nrRounds: Int)
-
-fun checkWinner(creatures: List<Creature>): KClass<out Creature>? {
-    val containsGoblin = creatures.any { it is Goblin }
-    val containsElf = creatures.any { it is Elf }
-    println("$containsGoblin $containsElf")
-    return when {
-        containsGoblin && !containsElf -> Goblin::class
-        containsElf && !containsGoblin -> Elf::class
-        else -> null
-    }
-}
-
 
 private fun FightingArea.print(overlay: Set<Coord>? = null, overlayChar: Char? = null) = this.mapIndexed { y, rows ->
     rows.mapIndexed { x, field ->
@@ -616,7 +585,7 @@ sealed class Creature(override var coord: Coord, open var hitPoints: Int = 200, 
         }
     }
 
-    fun fight(fightingArea: FightingArea) {
+    fun fight(fightingArea: FightingArea): Creature? {
         println("fight")
         val target = getAdjacentTargetCreatures(fightingArea).minBy { it.hitPoints }
         if (target != null) {
@@ -624,17 +593,20 @@ sealed class Creature(override var coord: Coord, open var hitPoints: Int = 200, 
             println("hitPoints=${target.hitPoints}")
             if (target.hitPoints <= 0) {
                 fightingArea[target.coord.y][target.coord.x] = null // Killed creature should be removed from fighting area
+                return target // Killed
             }
         }
+        return null
     }
 
-    fun moveAndFight(fightingArea: FightingArea): KClass<out Creature>? {
+    fun moveAndFight(fightingArea: FightingArea, cautious: Boolean): KClass<out Creature>? {
         if (getTargetCreatures(fightingArea).isEmpty()) return this::class
         val previousCoord = coord
         move(fightingArea)
         fightingArea[previousCoord.y][previousCoord.x] = null
         fightingArea[coord.y][coord.x] = this
-        fight(fightingArea)
+        val killed = fight(fightingArea)
+        if (cautious && killed is Elf) return this::class // When one elf dies goblins have won
         return null
     }
 }
@@ -650,7 +622,7 @@ fun findNeededElfPower(fightingAreaString: String): NeededElfPowerResult {
     var elfPower = 4
     while(true) {
         val fightingArea = parseFightingArea(fightingAreaString, elfPower = elfPower)
-        val battleResult = fightingArea.cautiousBattle()
+        val battleResult = fightingArea.battle(true)
         println("elfPower=$elfPower")
         println(fightingArea.print())
         if (battleResult.winner == Elf::class) return NeededElfPowerResult(elfPower, battleResult, fightingArea)
@@ -1261,10 +1233,10 @@ class Day15Spec : Spek({
                         """.trimIndent()
                     }
                     it("should have fought the right number of rounds") {
-                        nrRounds `should equal` 30 /*29*/ // Again wrong rounds in examples
+                        nrRounds `should equal` 29 // Again wrong rounds in examples
                     }
                     it("should calculate the right outcome") {
-                        battleOutcome(nrRounds, fightingArea) `should equal` 5160 /*4988*/
+                        battleOutcome(nrRounds, fightingArea) `should equal` 4988
                     }
                 }
             }
@@ -1280,33 +1252,31 @@ class Day15Spec : Spek({
                 """.trimIndent()
                 on("cautious battle with normal power") {
                     val fightingArea = parseFightingArea(fightingAreaString)
-                    val battleResult = fightingArea.cautiousBattle()
+                    val battleResult = fightingArea.battle(true)
                     it("should abort with goblins winning") {
                         battleResult.winner `should equal` Goblin::class
-                        battleResult.nrRounds `should equal` 0
                     }
                 }
                 on("cautious battle with increased but not enough power") {
                     val fightingArea = parseFightingArea(fightingAreaString, elfPower = 14)
-                    val battleResult = fightingArea.cautiousBattle()
+                    val battleResult = fightingArea.battle(true)
                     it("should abort with goblins winning") {
                         battleResult.winner `should equal` Goblin::class
-                        battleResult.nrRounds `should equal` 0
                     }
                 }
                 on("cautious battle with enough power") {
                     val fightingArea = parseFightingArea(fightingAreaString, elfPower = 15)
-                    val battleResult = fightingArea.cautiousBattle()
+                    val battleResult = fightingArea.battle(true)
                     it("should abort with goblins winning") {
                         battleResult.winner `should equal` Elf::class
-                        battleResult.nrRounds `should equal` 30
+                        battleResult.nrRounds `should equal` 29
                     }
                 }
                 on("find needed elf power") {
                     val neededElfPowerResult = findNeededElfPower(fightingAreaString)
                     it("should find the right amount of elf power") {
                         neededElfPowerResult.elfPower `should equal` 15
-                        neededElfPowerResult.battleResult `should equal` BattleResult(Elf::class, 30)
+                        neededElfPowerResult.battleResult `should equal` BattleResult(Elf::class, 29)
                     }
                 }
             }
