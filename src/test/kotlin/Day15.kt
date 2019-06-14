@@ -442,6 +442,7 @@ Outcome: 30 * 38 = 1140
 After increasing the Elves' attack power until it is just barely enough for them to win without any Elves dying,
 what is the outcome of the combat described in your puzzle input?
 
+I owe much to the solution of Darren Mossman, as a reference implementation it helped me to clarify many ambiguities https://github.com/darrenmossman/AdventOfCode
  */
 
 fun battleOutcome(nrRounds: Int, fightingArea: FightingArea) = fightingArea.getCreaturesInFightingOrder().sumBy { it.hitPoints } * nrRounds
@@ -471,7 +472,7 @@ fun FightingArea.battle(cautious: Boolean = false): BattleResult {
     var nrRounds = 0
     while(true) {
         println(nrRounds)
-        println(print())
+        println(printWithCreatures())
         val winner = moveAndFight(cautious)
         if (winner != null) return BattleResult(winner, nrRounds)
         nrRounds++
@@ -493,6 +494,9 @@ private fun FightingArea.print(overlay: Set<Coord>? = null, overlayChar: Char? =
             }
     }.joinToString("")
 }.joinToString("\n")
+
+private fun FightingArea.printWithCreatures(overlay: Set<Coord>? = null, overlayChar: Char? = null) = print(overlay, overlayChar) + "\n" +
+    getCreaturesInFightingOrder().map { it.toString() }.joinToString("\n")
 
 data class Coord(val x: Int, val y: Int)
 
@@ -558,8 +562,9 @@ sealed class Creature(override var coord: Coord, open var hitPoints: Int = 200, 
 
     private tailrec fun getNearestTargetSquarePath(fightingArea: FightingArea, interimResults: List<List<Coord>>, targets: Set<Coord>, alreadyChecked: Set<Coord>): List<Coord> {
         if (interimResults.isEmpty()) return emptyList()
-        interimResults.forEach {
-            if (it.last() in targets) return it
+        val resultPathes = interimResults.filter { it.last() in targets }
+        if (resultPathes.isNotEmpty()) {
+            return resultPathes.sortedBy{ it.last().x }.sortedBy{ it.last().y }.first() // Pathes with same length should be sortd in reading order
         }
         val nextAlreadyChecked = mutableSetOf<Coord>()
         nextAlreadyChecked.addAll(alreadyChecked)
@@ -1113,8 +1118,53 @@ class Day15Spec : Spek({
                 it ("should calculate the right outcome") {
                     battleOutcome(nrRounds, fightingArea) `should equal` 197
                 }
-
             }
+            given("creature killed during a battle should not block the way for later moves") {
+                val fightingArea = parseFightingArea("""
+                    ########
+                    #G..EGE#
+                    #......#
+                    ########
+                """.trimIndent())
+                val goblin = fightingArea[1][5] as Goblin
+                goblin.hitPoints = 1
+                fightingArea.moveAndFight()
+                it("should have moved the second elf because the second goblin died") {
+                    fightingArea.print() `should equal` """
+                            ########
+                            #.G.EE.#
+                            #......#
+                            ########
+                        """.trimIndent()
+                }
+            }
+            given("special case where the goblin should go in the right direction") {
+                val fightingArea = parseFightingArea("""
+                    ########
+                    #..G.#E#
+                    #...#..#
+                    #.....##
+                    #....###
+                    #..#.###
+                    #..E####
+                    ########
+                """.trimIndent())
+
+                fightingArea.moveAndFight()
+                it("goblin should move to the right in reading order") {
+                    fightingArea.print() `should equal` """
+                            ########
+                            #....#.#
+                            #..G#.E#
+                            #.....##
+                            #....###
+                            #..#.###
+                            #.E.####
+                            ########
+                        """.trimIndent()
+                }
+            }
+
             given("examples") {
                 // The outcome in the examples seems to be systematically calculated wrongly by using a number of rounds which is one to small
                 val testData = arrayOf(
@@ -1281,18 +1331,87 @@ class Day15Spec : Spek({
                 }
             }
         }
+        given("examples") {
+            // The outcome in the examples seems to be systematically calculated wrongly by using a number of rounds which is one to small
+            val testData = arrayOf(
+                    data("""
+                        #######
+                        #.G...#
+                        #...EG#
+                        #.#.#G#
+                        #..G#E#
+                        #.....#
+                        #######
+                    """.trimIndent(), 15, 4988),
+                    data("""
+                        #######
+                        #E..EG#
+                        #.#G.E#
+                        #E.##E#
+                        #G..#.#
+                        #..E#.#
+                        #######
+                    """.trimIndent(), 4, 31284),
+                    data("""
+                        #######
+                        #E.G#.#
+                        #.#G..#
+                        #G.#.G#
+                        #G..#.#
+                        #...E.#
+                        #######
+                    """.trimIndent(), 15, 3478),
+                    data("""
+                        #######
+                        #.E...#
+                        #.#..G#
+                        #.###.#
+                        #E#G#G#
+                        #...#G#
+                        #######
+                    """.trimIndent(), 12, 6474),
+                    data("""
+                        #########
+                        #G......#
+                        #.E.#...#
+                        #..##..G#
+                        #...##..#
+                        #...#...#
+                        #.G...G.#
+                        #.....G.#
+                        #########
+                    """.trimIndent(), 34, 1140)
+
+            )
+
+            onData("fighting area %s", with = *testData) { input, attackPower, expected ->
+                val neededElfPowerResult = findNeededElfPower(input)
+                it("should find the right amount of elf power") {
+                    neededElfPowerResult.elfPower `should equal` attackPower
+                    battleOutcome(neededElfPowerResult.battleResult.nrRounds, neededElfPowerResult.fightingArea) `should equal` expected
+                }
+            }
+        }
         describe("exercise") {
             given("exercise input") {
                 val input = readResource("day15Input.txt")
+                on("battle with the right elf power") {
+                    val fightingArea = parseFightingArea(input, 25)
+                    val nrRounds = fightingArea.battle().nrRounds
+                    println(fightingArea.print())
+                    it("should find result") {
+                        battleOutcome(nrRounds, fightingArea) `should equal` 53725
+                    }
+                }
                 on("find needed elf power") {
                     val neededElfPowerResult = findNeededElfPower(input)
                     println(neededElfPowerResult.fightingArea.print())
                     it("should find the right amount of elf power") {
                         neededElfPowerResult.elfPower `should equal` 25
-                        neededElfPowerResult.battleResult `should equal` BattleResult(Elf::class, 38)
+                        neededElfPowerResult.battleResult `should equal` BattleResult(Elf::class, 35)
                     }
                     it("should find result") {
-                        battleOutcome(neededElfPowerResult.battleResult.nrRounds, neededElfPowerResult.fightingArea) `should equal` 58444
+                        battleOutcome(neededElfPowerResult.battleResult.nrRounds, neededElfPowerResult.fightingArea) `should equal` 53725
                     }
                  }
 
