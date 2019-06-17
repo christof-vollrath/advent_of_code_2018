@@ -3,8 +3,6 @@ import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
-import org.jetbrains.spek.api.dsl.xit
-import java.lang.IllegalArgumentException
 
 /*
 --- Day 12: Subterranean Sustainability ---
@@ -125,21 +123,19 @@ fun executePlantTransition(initialState: List<Pair<Int, Boolean>>, transitions: 
     fun prefixList(nr: Int) = (nr-5 .. nr-1).map { it to false}
     fun suffixList(nr: Int) = (nr+1 .. nr+5).map { it to false}
     val expandedList = prefixList(initialState.first().first) + initialState + suffixList(initialState.last().first) // Make sure that list has enough empty pots at the beginning and the ending but not more
-    return (2..(expandedList.size-3)).map {
-        val subList = expandedList.subList(it-2, it+3).map { it.second }
+    return (2..(expandedList.size-3)).map { pos ->
+        val subList = expandedList.subList(pos-2, pos+3).map { it.second }
         val transition = transitions.find { it.state == subList }
-        if (transition == null) expandedList[it].first to false
-        else expandedList[it].first to transition.nextState
+        if (transition == null) expandedList[pos].first to false
+        else expandedList[pos].first to transition.nextState
     }
-            .dropWhile { ! it.second }
-            .dropLastWhile { ! it.second }
+    .dropWhile { ! it.second }
+    .dropLastWhile { ! it.second }
 }
 
 fun executePlantTransition(initialState: List<Pair<Int, Boolean>>, transitions: List<PlantTransition>, times: Int): List<Pair<Int, Boolean>> {
     var currentState = initialState
-    repeat(times) { i ->
-        //println("$i: ${countPlants(currentState)}")
-        //println(printPlantState(currentState))
+    repeat(times) {
         currentState = executePlantTransition(currentState, transitions)
     }
     return currentState
@@ -215,7 +211,7 @@ class Day12Spec : Spek({
                 }
             }
             describe("execute a single transition step") {
-                given("an initital state and transitions") {
+                given("an initial state and transitions") {
                     val initialState = parsePlantState("#..#.#..##......###...###")
                     val transitions = parsePlantTransitions(transitionsString)
                     it("should result the right next state") {
@@ -224,7 +220,7 @@ class Day12Spec : Spek({
                 }
             }
             describe("execute multiple transition steps") {
-                given("an initital state and transitions") {
+                given("an initial state and transitions") {
                     val initialState = parsePlantState("#..#.#..##......###...###")
                     val transitions = parsePlantTransitions(transitionsString)
                     it("should result the right next state") {
@@ -255,7 +251,7 @@ class Day12Spec : Spek({
             val initialState = parsePlantState("##.#.####..#####..#.....##....#.#######..#.#...........#......##...##.#...####..##.#..##.....#..####")
             val c1 = countPlants(executePlantTransition(initialState, transitions, 10000))
             it("should calculate diffs between cycles") {
-                // it turns out that after some time the same pattern is just shifted and plant count increases by 780_000 after 10_000 cyles
+                // it turns out that after some time the same pattern is just shifted and plant count increases by 780_000 after 10_000 cycles
                 val c2 = countPlants(executePlantTransition(initialState, transitions, 20000))
                 c2 `should equal` c1 + 780_000
             }

@@ -367,16 +367,16 @@ fun printRailMap(railMap: RailMap, carts: Set<Cart> = emptySet()): String {
     val cartsMap = carts.map { it.position to it }.toMap()
     val maxX = railMap.keys.maxBy { it.first}!!.first
     val maxY = railMap.keys.maxBy { it.second}!!.second
-    return (0 .. maxY).map { y ->
-        (0 .. maxX).map {x ->
+    return (0..maxY).joinToString("\n") { y ->
+        (0..maxX).map { x ->
             if (Pair(x, y) in collisions) 'X'
-            else when(cartsMap[Pair(x, y)]?.direction) {
+            else when (cartsMap[Pair(x, y)]?.direction) {
                 Direction.Up -> '^'
                 Direction.Down -> 'v'
                 Direction.Left -> '<'
                 Direction.Right -> '>'
                 else ->
-                    when(railMap[Pair(x, y)]) {
+                    when (railMap[Pair(x, y)]) {
                         null -> ' '
                         TrackElement.VerticalStraight -> '|'
                         TrackElement.HorizontalStraight -> '-'
@@ -386,7 +386,7 @@ fun printRailMap(railMap: RailMap, carts: Set<Cart> = emptySet()): String {
                     }
             }
         }.joinToString("").trimEnd()
-    }.joinToString("\n")
+    }
 
 }
 
@@ -573,7 +573,7 @@ class Day13Spec : Spek({
                 val (railMap, carts) = parseRailMapWithCarts(mapString)
                 var movedCarts = carts
                 it("should be moved correctly for all steps") {
-                    steps.forEachIndexed { i, step ->
+                    steps.forEachIndexed { _, step ->
                         val (nextMovedCarts, _) = moveCartsAndFindCollision(movedCarts, railMap)
                         movedCarts = nextMovedCarts
                         printRailMap(railMap, movedCarts) `should equal` step
@@ -610,7 +610,7 @@ class Day13Spec : Spek({
                 }
                 var movedCarts = carts
                 it("should be moved correctly for all steps") {
-                    steps.forEachIndexed { i, step ->
+                    steps.forEachIndexed { _, step ->
                         val (nextMovedCarts, _) = moveCartsAndFindCollision(movedCarts, railMap)
                         movedCarts = nextMovedCarts
                         printRailMap(railMap, movedCarts) `should equal` step
@@ -744,7 +744,7 @@ class Day13Spec : Spek({
                 val (railMap, carts) = parseRailMapWithCarts(mapString)
                 var movedCarts = carts
                 it("should be moved correctly for all steps") {
-                    steps.forEachIndexed { i, step ->
+                    steps.forEachIndexed { _, step ->
                         val (nextMovedCarts, _) = moveCartsAndFindCollision(movedCarts, railMap)
                         movedCarts = nextMovedCarts
                         printRailMap(railMap, movedCarts) `should equal` step

@@ -158,8 +158,7 @@ fun parseGuardRecord(input: String): GuardEvent {
     if (match.groupValues.size != 7) throw IllegalArgumentException("Only ${match.groupValues.size} elements parsed $input")
     val values = match.groupValues
     val timeStamp = TimeStamp(values[1].toInt(), values[2].toInt(), values[3].toInt(), values[4].toInt(), values[5].toInt())
-    val report = values[6]
-    return when (report) {
+    return when (val report = values[6]) {
         "falls asleep" -> FallsAsleep(timeStamp)
         "wakes up" -> WakesUp(timeStamp)
         else -> {

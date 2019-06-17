@@ -198,12 +198,12 @@ fun findMessage(initLightPoints: FloatingLightPoints): Pair<FloatingLightPoints,
 }
 
 fun detectMessage(lightPoints: FloatingLightPoints): Boolean {
-    if (arrayToHigh(lightPoints, 100)) return false // Hight of text will not be higher than 100
+    if (arrayToHigh(lightPoints, 100)) return false // Height of text will not be higher than 100
     val pointsArray = lightPoints.array
     val size = pointsArray.size
-    val columDistribution = calulateDistribution(pointsArray)
-    val count0 = columDistribution.filter { it == 0 }.size
-    val countFull = columDistribution.filter { it == size }.size
+    val columnDistribution = calculateDistribution(pointsArray)
+    val count0 = columnDistribution.filter { it == 0 }.size
+    val countFull = columnDistribution.filter { it == size }.size
     return count0 > size * 0.03 && countFull > size * 0.01 // Some assumption about distribution of points in a text
 }
 
@@ -220,7 +220,7 @@ fun arrayToHigh(lightPoints: FloatingLightPoints, maxHight: Int): Boolean {
     return false
 }
 
-fun calulateDistribution(pointsArray: List<List<Char>>): List<Int> {
+fun calculateDistribution(pointsArray: List<List<Char>>): List<Int> {
     val sizeX = pointsArray[0].size // Assuming every row has same size
     return (0 until sizeX).map {x ->
         pointsArray.map { line ->
@@ -348,7 +348,7 @@ class Day10Spec : Spek({
                     ..#.....#.#.......
                 """.trimIndent()
             }
-            it("after 3 seconds hi should apear") {
+            it("after 3 seconds hi should appear") {
                 val lightPoints = parsePositionVelocityLines(input)
                 var movedLightPoints = lightPoints
                 repeat(3) { movedLightPoints = moveLightPoints(movedLightPoints) }

@@ -548,9 +548,9 @@ sealed class Creature(override var coord: Coord, open var hitPoints: Int = 200, 
 
     private tailrec fun getNearestTargetSquarePath(fightingArea: FightingArea, interimResults: List<List<Coord>>, targets: Set<Coord>, alreadyChecked: Set<Coord>): List<Coord> {
         if (interimResults.isEmpty()) return emptyList()
-        val resultPathes = interimResults.filter { it.last() in targets }
-        if (resultPathes.isNotEmpty()) {
-            return resultPathes.sortedBy{ it.last().x }.sortedBy{ it.last().y }.first() // Pathes with same length should be sorted in reading order
+        val resultPaths = interimResults.filter { it.last() in targets }
+        if (resultPaths.isNotEmpty()) {
+            return resultPaths.sortedBy{ it.last().x }.sortedBy{ it.last().y }.first() // Pathes with same length should be sorted in reading order
         }
         val nextAlreadyChecked = mutableSetOf<Coord>()
         nextAlreadyChecked.addAll(alreadyChecked)
@@ -697,7 +697,7 @@ class Day15Spec : Spek({
                     #.G.#G#
                     #######
                 """.trimIndent())
-                on("get arget squares") {
+                on("get target squares") {
                     val targetSquares = (fightingArea[1][1] as Creature).getTargetSquares(fightingArea)
                     it("should get all target squares") {
                         targetSquares `should equal` setOf(

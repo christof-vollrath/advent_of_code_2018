@@ -102,7 +102,7 @@ fun mergeClaims(claims: List<Claim>) = claims.fold(MergedClaim()) { acc, claim -
 operator fun MergedClaim.plusAssign(other: AbstractClaim) {
     claimIds += other.claimIds
     overlappingClaimIds += other.overlappingClaimIds
-    other.squareMap.forEach { pos, otherSquare ->
+    other.squareMap.forEach { (pos, otherSquare) ->
         val square = squareMap[pos]
         if (square == null) squareMap[pos] = otherSquare
         else { // overlapping claims
@@ -118,8 +118,7 @@ fun AbstractClaim.toStringMap(): String {
     val maxY = squareMap.keys.maxBy { it.second }!!.second
     val chars = (1..maxY).map { y ->
         (1..maxX).map { x ->
-            val square = squareMap[x to y]
-            when (square) {
+            when (val square = squareMap[x to y]) {
                 0 -> 'X'
                 null -> '.'
                 else -> (square % 10).toString()[0]
