@@ -442,21 +442,12 @@ Outcome: 30 * 38 = 1140
 After increasing the Elves' attack power until it is just barely enough for them to win without any Elves dying,
 what is the outcome of the combat described in your puzzle input?
 
-I owe much to the solution of Darren Mossman, as a reference implementation it helped me to clarify many ambiguities https://github.com/darrenmossman/AdventOfCode
+I owe much to the solution of Darren Mossman, as a reference implementation. It helped me to clarify many ambiguities https://github.com/darrenmossman/AdventOfCode
  */
 
 fun battleOutcome(nrRounds: Int, fightingArea: FightingArea) = fightingArea.getCreaturesInFightingOrder().sumBy { it.hitPoints } * nrRounds
 
 typealias FightingArea = MutableList<MutableList<Field?>>
-private fun FightingArea.move() {
-    val creaturesInFightingOrder = getCreaturesInFightingOrder()
-    creaturesInFightingOrder.forEach { creature ->
-        val previousCoord = creature.coord
-        creature.move(this)
-        this[previousCoord.y][previousCoord.x] = null
-        this[creature.coord.y][creature.coord.x] = creature
-    }
-}
 private fun FightingArea.moveAndFight(cautious: Boolean = false): KClass<out Creature>? {
     val creaturesInFightingOrder = getCreaturesInFightingOrder()
     creaturesInFightingOrder.forEach { creature ->
@@ -471,8 +462,6 @@ private fun FightingArea.moveAndFight(cautious: Boolean = false): KClass<out Cre
 fun FightingArea.battle(cautious: Boolean = false): BattleResult {
     var nrRounds = 0
     while(true) {
-        println(nrRounds)
-        println(printWithCreatures())
         val winner = moveAndFight(cautious)
         if (winner != null) return BattleResult(winner, nrRounds)
         nrRounds++
@@ -494,9 +483,6 @@ private fun FightingArea.print(overlay: Set<Coord>? = null, overlayChar: Char? =
             }
     }.joinToString("")
 }.joinToString("\n")
-
-private fun FightingArea.printWithCreatures(overlay: Set<Coord>? = null, overlayChar: Char? = null) = print(overlay, overlayChar) + "\n" +
-    getCreaturesInFightingOrder().map { it.toString() }.joinToString("\n")
 
 data class Coord(val x: Int, val y: Int)
 
@@ -564,7 +550,7 @@ sealed class Creature(override var coord: Coord, open var hitPoints: Int = 200, 
         if (interimResults.isEmpty()) return emptyList()
         val resultPathes = interimResults.filter { it.last() in targets }
         if (resultPathes.isNotEmpty()) {
-            return resultPathes.sortedBy{ it.last().x }.sortedBy{ it.last().y }.first() // Pathes with same length should be sortd in reading order
+            return resultPathes.sortedBy{ it.last().x }.sortedBy{ it.last().y }.first() // Pathes with same length should be sorted in reading order
         }
         val nextAlreadyChecked = mutableSetOf<Coord>()
         nextAlreadyChecked.addAll(alreadyChecked)
@@ -582,20 +568,20 @@ sealed class Creature(override var coord: Coord, open var hitPoints: Int = 200, 
     }
 
     fun move(fightingArea: FightingArea) {
-        println("move")
+        val previousCoord = coord
         val path = getNearestTargetSquarePath(fightingArea)
         if (path.isNotEmpty()) {
             val first = path.first()
             coord = Coord(first.x, first.y)
+            fightingArea[previousCoord.y][previousCoord.x] = null
+            fightingArea[coord.y][coord.x] = this
         }
     }
 
     fun fight(fightingArea: FightingArea): Creature? {
-        println("fight")
         val target = getAdjacentTargetCreatures(fightingArea).minBy { it.hitPoints }
         if (target != null) {
             target.hitPoints -= attackPower
-            println("hitPoints=${target.hitPoints}")
             if (target.hitPoints <= 0) {
                 fightingArea[target.coord.y][target.coord.x] = null // Killed creature should be removed from fighting area
                 return target // Killed
@@ -606,10 +592,7 @@ sealed class Creature(override var coord: Coord, open var hitPoints: Int = 200, 
 
     fun moveAndFight(fightingArea: FightingArea, cautious: Boolean): KClass<out Creature>? {
         if (getTargetCreatures(fightingArea).isEmpty()) return this::class
-        val previousCoord = coord
         move(fightingArea)
-        fightingArea[previousCoord.y][previousCoord.x] = null
-        fightingArea[coord.y][coord.x] = this
         val killed = fight(fightingArea)
         if (cautious && killed is Elf) return this::class // When one elf dies goblins have won
         return null
@@ -628,8 +611,6 @@ fun findNeededElfPower(fightingAreaString: String): NeededElfPowerResult {
     while(true) {
         val fightingArea = parseFightingArea(fightingAreaString, elfPower = elfPower)
         val battleResult = fightingArea.battle(true)
-        println("elfPower=$elfPower")
-        println(fightingArea.print())
         if (battleResult.winner == Elf::class) return NeededElfPowerResult(elfPower, battleResult, fightingArea)
         elfPower++
     }
@@ -812,7 +793,7 @@ class Day15Spec : Spek({
                 #######
             """.trimIndent())
                 on("one movement") {
-                    fightingArea.move()
+                    fightingArea.moveAndFight()
                     it("should have moved") {
                         fightingArea.print() `should equal` """
                             #######
@@ -839,7 +820,7 @@ class Day15Spec : Spek({
                 #######
             """.trimIndent())
                 on("one movement") {
-                    fightingArea.move()
+                    fightingArea.moveAndFight()
                     it("should not have moved any creature") {
                         fightingArea.print() `should equal` """
                             #######
@@ -864,7 +845,7 @@ class Day15Spec : Spek({
                     #########
                 """.trimIndent())
                 on("moving first times") {
-                    fightingArea.move()
+                    fightingArea.moveAndFight()
                     it("should have the right result after move 1") {
                         fightingArea.print() `should equal` """
                             #########
@@ -880,7 +861,7 @@ class Day15Spec : Spek({
                     }
                 }
                 on("moving second times") {
-                    fightingArea.move()
+                    fightingArea.moveAndFight()
                     it("should have the right result after move 2") {
                         fightingArea.print() `should equal` """
                             #########
@@ -896,7 +877,7 @@ class Day15Spec : Spek({
                     }
                 }
                 on("moving third times") {
-                    fightingArea.move()
+                    fightingArea.moveAndFight()
                     it("should have the right result after move 3") {
                         fightingArea.print() `should equal` """
                             #########
@@ -1166,7 +1147,6 @@ class Day15Spec : Spek({
             }
 
             given("examples") {
-                // The outcome in the examples seems to be systematically calculated wrongly by using a number of rounds which is one to small
                 val testData = arrayOf(
                         data("""
                             #######
@@ -1227,29 +1207,12 @@ class Day15Spec : Spek({
                 }
             }
         }
-        describe("analyse differences in result") {
-            given("example") {
-                val fightingArea = parseFightingArea("""
-                            #######
-                            #G..#E#
-                            #E#E.E#
-                            #G.##.#
-                            #...#E#
-                            #...E.#
-                            #######
-                        """.trimIndent())
-                val nrRounds = fightingArea.battle().nrRounds
-                println("nrRounds=$nrRounds")
-                println("battleOutcome=${battleOutcome(nrRounds, fightingArea)}")
-            }
-        }
         describe("exercise") {
             given("exercise input") {
                 val input = readResource("day15Input.txt")
                 val fightingArea = parseFightingArea(input)
                 on("battle") {
                     val nrRounds = fightingArea.battle().nrRounds
-                    println(fightingArea.print())
                     it("should find result") {
                         battleOutcome(nrRounds, fightingArea) `should equal` 227290
                     }
@@ -1332,7 +1295,6 @@ class Day15Spec : Spek({
             }
         }
         given("examples") {
-            // The outcome in the examples seems to be systematically calculated wrongly by using a number of rounds which is one to small
             val testData = arrayOf(
                     data("""
                         #######
@@ -1398,14 +1360,12 @@ class Day15Spec : Spek({
                 on("battle with the right elf power") {
                     val fightingArea = parseFightingArea(input, 25)
                     val nrRounds = fightingArea.battle().nrRounds
-                    println(fightingArea.print())
                     it("should find result") {
                         battleOutcome(nrRounds, fightingArea) `should equal` 53725
                     }
                 }
                 on("find needed elf power") {
                     val neededElfPowerResult = findNeededElfPower(input)
-                    println(neededElfPowerResult.fightingArea.print())
                     it("should find the right amount of elf power") {
                         neededElfPowerResult.elfPower `should equal` 25
                         neededElfPowerResult.battleResult `should equal` BattleResult(Elf::class, 35)
