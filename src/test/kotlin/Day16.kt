@@ -1,3 +1,11 @@
+import org.amshove.kluent.`should equal`
+import org.jetbrains.spek.api.Spek
+import org.jetbrains.spek.api.dsl.describe
+import org.jetbrains.spek.api.dsl.given
+import org.jetbrains.spek.api.dsl.it
+import org.jetbrains.spek.data_driven.data
+import org.jetbrains.spek.data_driven.on as onData
+
 /*
 --- Day 16: Chronal Classification ---
 
@@ -95,4 +103,63 @@ You collect many of these samples (the first section of your puzzle input).
 The manual also includes a small test program (the second section of your puzzle input) - you can ignore it for now.
 
 Ignoring the opcode numbers, how many samples in your puzzle input behave like three or more opcodes?
+
  */
+
+abstract class Command(val opCode: Int) {
+    abstract fun execute(registers: List<Int>): List<Int> // Very modern cpu architecture: registers are immutable
+}
+
+fun <E> Iterable<E>.updated(index: Int, elem: E) = mapIndexed { i, existing ->  if (i == index) elem else existing }
+    // See discussion https://discuss.kotlinlang.org/t/best-way-to-replace-an-element-of-an-immutable-list/8646/7
+
+data class Addi(val a: Int, val b: Int, val c: Int) : Command(0) {
+    override fun execute(registers: List<Int>): List<Int> {
+        val result = registers[a] + b
+        return registers.updated(c, result)
+    }
+}
+data class Mulr(val a: Int, val b: Int, val c: Int) : Command(0) {
+    override fun execute(registers: List<Int>): List<Int> {
+        val result = registers[a] * registers[b]
+        return registers.updated(c, result)
+    }
+}
+data class Seti(val a: Int, val b: Int, val c: Int) : Command(0) {
+    override fun execute(registers: List<Int>): List<Int> {
+        val result = a
+        return registers.updated(c, result)
+    }
+}
+
+class Day16Spec : Spek({
+
+    describe("part 1") {
+        describe("execute addi commands") {
+            given("registers") {
+                val startRegisters = listOf(42, 0, 0, 0)
+                it("should change registers correctly") {
+                    Addi(0, 7, 3).execute(startRegisters) `should equal` listOf(42, 0, 0, 49)
+                }
+            }
+        }
+        describe("three opcodes") {
+            given("registers") {
+                val startRegisters = listOf(3, 2, 1, 1)
+                val expectedRegisters = listOf(3, 2, 2, 1)
+                val threeOpcodes = arrayOf(
+                        data(Mulr(2, 1, 2) as Command, expectedRegisters),
+                        data(Addi(2, 1, 2) as Command, expectedRegisters),
+                        data(Seti(2, 1, 2) as Command, expectedRegisters)
+                )
+                onData("command %s", with = *threeOpcodes) { command: Command, expected: List<Int> ->
+                    val result = command.execute(startRegisters)
+                    it("returns $expected") {
+                        result `should equal` expected
+                    }
+                }
+
+            }
+        }
+    }
+})
