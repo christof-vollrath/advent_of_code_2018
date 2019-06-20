@@ -113,15 +113,57 @@ abstract class Command(val opCode: Int) {
 fun <E> Iterable<E>.updated(index: Int, elem: E) = mapIndexed { i, existing ->  if (i == index) elem else existing }
     // See discussion https://discuss.kotlinlang.org/t/best-way-to-replace-an-element-of-an-immutable-list/8646/7
 
+data class Addr(val a: Int, val b: Int, val c: Int) : Command(0) {
+    override fun execute(registers: List<Int>): List<Int> {
+        val result = registers[a] + registers[b]
+        return registers.updated(c, result)
+    }
+}
 data class Addi(val a: Int, val b: Int, val c: Int) : Command(0) {
     override fun execute(registers: List<Int>): List<Int> {
         val result = registers[a] + b
         return registers.updated(c, result)
     }
 }
+data class Muli(val a: Int, val b: Int, val c: Int) : Command(0) {
+    override fun execute(registers: List<Int>): List<Int> {
+        val result = registers[a] * b
+        return registers.updated(c, result)
+    }
+}
 data class Mulr(val a: Int, val b: Int, val c: Int) : Command(0) {
     override fun execute(registers: List<Int>): List<Int> {
         val result = registers[a] * registers[b]
+        return registers.updated(c, result)
+    }
+}
+data class Bani(val a: Int, val b: Int, val c: Int) : Command(0) {
+    override fun execute(registers: List<Int>): List<Int> {
+        val result = registers[a] and b
+        return registers.updated(c, result)
+    }
+}
+data class Banr(val a: Int, val b: Int, val c: Int) : Command(0) {
+    override fun execute(registers: List<Int>): List<Int> {
+        val result = registers[a] and registers[b]
+        return registers.updated(c, result)
+    }
+}
+data class Bori(val a: Int, val b: Int, val c: Int) : Command(0) {
+    override fun execute(registers: List<Int>): List<Int> {
+        val result = registers[a] or b
+        return registers.updated(c, result)
+    }
+}
+data class Borr(val a: Int, val b: Int, val c: Int) : Command(0) {
+    override fun execute(registers: List<Int>): List<Int> {
+        val result = registers[a] or registers[b]
+        return registers.updated(c, result)
+    }
+}
+data class Setr(val a: Int, val b: Int, val c: Int) : Command(0) {
+    override fun execute(registers: List<Int>): List<Int> {
+        val result = registers[a]
         return registers.updated(c, result)
     }
 }
@@ -151,6 +193,30 @@ class Day16Spec : Spek({
                         data(Mulr(2, 1, 2) as Command, expectedRegisters),
                         data(Addi(2, 1, 2) as Command, expectedRegisters),
                         data(Seti(2, 1, 2) as Command, expectedRegisters)
+                )
+                onData("command %s", with = *threeOpcodes) { command: Command, expected: List<Int> ->
+                    val result = command.execute(startRegisters)
+                    it("returns $expected") {
+                        result `should equal` expected
+                    }
+                }
+
+            }
+        }
+        describe("all opcodes") {
+            given("registers") {
+                val startRegisters = listOf(3, 2, 1, 1)
+                val threeOpcodes = arrayOf(
+                        data(Addr(2, 1, 2) as Command, listOf(3, 2, 3, 1)),
+                        data(Addi(2, 1, 2) as Command, listOf(3, 2, 2, 1)),
+                        data(Mulr(2, 1, 2) as Command, listOf(3, 2, 2, 1)),
+                        data(Muli(2, 5, 3) as Command, listOf(3, 2, 1, 5)),
+                        data(Banr(2, 1, 2) as Command, listOf(3, 2, 0, 1)),
+                        data(Bani(2, 5, 3) as Command, listOf(3, 2, 1, 1)),
+                        data(Borr(2, 1, 2) as Command, listOf(3, 2, 3, 1)),
+                        data(Bori(2, 5, 3) as Command, listOf(3, 2, 1, 5)),
+                        data(Setr(0, 1, 2) as Command, listOf(3, 2, 3, 1)),
+                        data(Seti(2, 1, 2) as Command, listOf(3, 2, 2, 1))
                 )
                 onData("command %s", with = *threeOpcodes) { command: Command, expected: List<Int> ->
                     val result = command.execute(startRegisters)
