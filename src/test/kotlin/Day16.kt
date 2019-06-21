@@ -108,104 +108,105 @@ Ignoring the opcode numbers, how many samples in your puzzle input behave like t
 
 abstract class Command(val opCode: Int) {
     abstract fun execute(registers: List<Int>): List<Int> // Very modern cpu architecture: registers are immutable
+    fun fetch(immediate: Boolean, parameter: Int, registers: List<Int>) = if (immediate) parameter else registers[parameter]
 }
 
 fun <E> Iterable<E>.updated(index: Int, elem: E) = mapIndexed { i, existing ->  if (i == index) elem else existing }
     // See discussion https://discuss.kotlinlang.org/t/best-way-to-replace-an-element-of-an-immutable-list/8646/7
 
-data class Addr(val a: Int, val b: Int, val c: Int) : Command(0) {
+data class Addi(val a: Int, val b: Int, val c: Int) : Command(0) {
     override fun execute(registers: List<Int>): List<Int> {
-        val result = registers[a] + registers[b]
+        val result = fetch(false, a, registers) + fetch(true, b, registers)
         return registers.updated(c, result)
     }
 }
-data class Addi(val a: Int, val b: Int, val c: Int) : Command(0) {
+data class Addr(val a: Int, val b: Int, val c: Int) : Command(0) {
     override fun execute(registers: List<Int>): List<Int> {
-        val result = registers[a] + b
+        val result = fetch(false, a, registers) + fetch(false, b, registers)
         return registers.updated(c, result)
     }
 }
 data class Muli(val a: Int, val b: Int, val c: Int) : Command(0) {
     override fun execute(registers: List<Int>): List<Int> {
-        val result = registers[a] * b
+        val result = fetch(false, a, registers) * fetch(true, b, registers)
         return registers.updated(c, result)
     }
 }
 data class Mulr(val a: Int, val b: Int, val c: Int) : Command(0) {
     override fun execute(registers: List<Int>): List<Int> {
-        val result = registers[a] * registers[b]
+        val result = fetch(false, a, registers) * fetch(false, b, registers)
         return registers.updated(c, result)
     }
 }
 data class Bani(val a: Int, val b: Int, val c: Int) : Command(0) {
     override fun execute(registers: List<Int>): List<Int> {
-        val result = registers[a] and b
+        val result = fetch(false, a, registers) and fetch(true, b, registers)
         return registers.updated(c, result)
     }
 }
 data class Banr(val a: Int, val b: Int, val c: Int) : Command(0) {
     override fun execute(registers: List<Int>): List<Int> {
-        val result = registers[a] and registers[b]
+        val result = fetch(false, a, registers) and fetch(false, b, registers)
         return registers.updated(c, result)
     }
 }
 data class Bori(val a: Int, val b: Int, val c: Int) : Command(0) {
     override fun execute(registers: List<Int>): List<Int> {
-        val result = registers[a] or b
+        val result = fetch(false, a, registers) or fetch(true, b, registers)
         return registers.updated(c, result)
     }
 }
 data class Borr(val a: Int, val b: Int, val c: Int) : Command(0) {
     override fun execute(registers: List<Int>): List<Int> {
-        val result = registers[a] or registers[b]
+        val result = fetch(false, a, registers) or fetch(false, b, registers)
         return registers.updated(c, result)
     }
 }
 data class Setr(val a: Int, val b: Int, val c: Int) : Command(0) {
     override fun execute(registers: List<Int>): List<Int> {
-        val result = registers[a]
+        val result = fetch(false, a, registers)
         return registers.updated(c, result)
     }
 }
 data class Seti(val a: Int, val b: Int, val c: Int) : Command(0) {
     override fun execute(registers: List<Int>): List<Int> {
-        val result = a
+        val result = fetch(true, a, registers)
         return registers.updated(c, result)
     }
 }
 data class Gtir(val a: Int, val b: Int, val c: Int) : Command(0) {
     override fun execute(registers: List<Int>): List<Int> {
-        val result = a > registers[b]
+        val result = fetch(true, a, registers) > fetch(false, b, registers)
         return registers.updated(c, if (result) 1 else 0)
     }
 }
 data class Gtri(val a: Int, val b: Int, val c: Int) : Command(0) {
     override fun execute(registers: List<Int>): List<Int> {
-        val result = registers[a] > b
+        val result = fetch(false, a, registers) > fetch(true, b, registers)
         return registers.updated(c, if (result) 1 else 0)
     }
 }
 data class Gtrr(val a: Int, val b: Int, val c: Int) : Command(0) {
     override fun execute(registers: List<Int>): List<Int> {
-        val result = registers[a] == registers[b]
+        val result = fetch(false, a, registers) > fetch(false, b, registers)
         return registers.updated(c, if (result) 1 else 0)
     }
 }
 data class Eqir(val a: Int, val b: Int, val c: Int) : Command(0) {
     override fun execute(registers: List<Int>): List<Int> {
-        val result = a == registers[b]
+        val result = fetch(true, a, registers) == fetch(false, b, registers)
         return registers.updated(c, if (result) 1 else 0)
     }
 }
 data class Eqri(val a: Int, val b: Int, val c: Int) : Command(0) {
     override fun execute(registers: List<Int>): List<Int> {
-        val result = registers[a] == b
+        val result = fetch(false, a, registers) == fetch(true, b, registers)
         return registers.updated(c, if (result) 1 else 0)
     }
 }
 data class Eqrr(val a: Int, val b: Int, val c: Int) : Command(0) {
     override fun execute(registers: List<Int>): List<Int> {
-        val result = registers[a] == registers[b]
+        val result = fetch(false, a, registers) == fetch(false, b, registers)
         return registers.updated(c, if (result) 1 else 0)
     }
 }
