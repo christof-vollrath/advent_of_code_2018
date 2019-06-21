@@ -108,6 +108,13 @@ The manual also includes a small test program (the second section of your puzzle
 
 Ignoring the opcode numbers, how many samples in your puzzle input behave like three or more opcodes?
 
+--- Part Two ---
+
+Using the samples you collected, work out the number of each opcode and execute the test program
+(the second section of your puzzle input).
+
+What value is contained in register 0 after executing the test program?
+
  */
 
 abstract class Command(val opCode: Int) {
@@ -264,6 +271,8 @@ data class BeforeAfter(val before: List<Int>, val opcode: List<Int>, val after: 
     }
 
     fun countPossibleCommands(allCommands: List<KClass<out Command>>) = allCommands.count { checkCommand(it) }
+
+    fun findCommands(allCommands: List<KClass<out Command>>) = allCommands.filter { checkCommand(it) }
 }
 
 class Day16Spec : Spek({
@@ -398,6 +407,32 @@ class Day16Spec : Spek({
                 }
             }
         }
-
     }
+    describe("part 2") {
+        given("exercise input") {
+            val input = readResource("day16Input1.txt")
+            val beforeAfters = parseBeforeAfter(input)
+            it("should calculate which samples have only 1 matching opcode") {
+                val filter1 = beforeAfters.map { it.countPossibleCommands(allCommands) }.filter { it == 1}
+                filter1.size `should equal` 46
+            }
+            it("should find unique match") {
+                val opcodeMap = beforeAfters.map { it.opcode[0] to it.findCommands(allCommands) }
+                        .filter { it.second.size == 1 }
+                        .distinctBy { it.first }
+                        .map{it.first to it.second.first() }
+                        .toMap()
+                opcodeMap `should equal` mapOf(2 to Bori::class) // 2 -> bori
+            }
+            it("should find next match") {
+                val opcodeMap = beforeAfters.map { it.opcode[0] to it.findCommands(allCommands) }
+                        .filter { it.second.size == 2 && it.second.contains(Bori::class) }
+                        .distinctBy { it.first }
+                        .map{it.first to it.second.minus(Bori::class).first() }
+                        .toMap()
+                opcodeMap `should equal` mapOf(4 to Addi::class, 1 to Muli::class)
+            }
+        }
+    }
+
 })
