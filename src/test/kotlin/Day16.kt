@@ -173,6 +173,42 @@ data class Seti(val a: Int, val b: Int, val c: Int) : Command(0) {
         return registers.updated(c, result)
     }
 }
+data class Gtir(val a: Int, val b: Int, val c: Int) : Command(0) {
+    override fun execute(registers: List<Int>): List<Int> {
+        val result = a > registers[b]
+        return registers.updated(c, if (result) 1 else 0)
+    }
+}
+data class Gtri(val a: Int, val b: Int, val c: Int) : Command(0) {
+    override fun execute(registers: List<Int>): List<Int> {
+        val result = registers[a] > b
+        return registers.updated(c, if (result) 1 else 0)
+    }
+}
+data class Gtrr(val a: Int, val b: Int, val c: Int) : Command(0) {
+    override fun execute(registers: List<Int>): List<Int> {
+        val result = registers[a] == registers[b]
+        return registers.updated(c, if (result) 1 else 0)
+    }
+}
+data class Eqir(val a: Int, val b: Int, val c: Int) : Command(0) {
+    override fun execute(registers: List<Int>): List<Int> {
+        val result = a == registers[b]
+        return registers.updated(c, if (result) 1 else 0)
+    }
+}
+data class Eqri(val a: Int, val b: Int, val c: Int) : Command(0) {
+    override fun execute(registers: List<Int>): List<Int> {
+        val result = registers[a] == b
+        return registers.updated(c, if (result) 1 else 0)
+    }
+}
+data class Eqrr(val a: Int, val b: Int, val c: Int) : Command(0) {
+    override fun execute(registers: List<Int>): List<Int> {
+        val result = registers[a] == registers[b]
+        return registers.updated(c, if (result) 1 else 0)
+    }
+}
 
 class Day16Spec : Spek({
 
@@ -216,7 +252,14 @@ class Day16Spec : Spek({
                         data(Borr(2, 1, 2) as Command, listOf(3, 2, 3, 1)),
                         data(Bori(2, 5, 3) as Command, listOf(3, 2, 1, 5)),
                         data(Setr(0, 1, 2) as Command, listOf(3, 2, 3, 1)),
-                        data(Seti(2, 1, 2) as Command, listOf(3, 2, 2, 1))
+                        data(Seti(2, 1, 2) as Command, listOf(3, 2, 2, 1)),
+                        data(Gtir(0, 1, 3) as Command, listOf(3, 2, 1, 0)),
+                        data(Gtri(2, 0, 3) as Command, listOf(3, 2, 1, 1)),
+                        data(Gtrr(2, 1, 3) as Command, listOf(3, 2, 1, 0)),
+                        data(Eqir(0, 1, 3) as Command, listOf(3, 2, 1, 0)),
+                        data(Eqri(0, 3, 3) as Command, listOf(3, 2, 1, 1)),
+                        data(Eqrr(3, 2, 3) as Command, listOf(3, 2, 1, 1))
+
                 )
                 onData("command %s", with = *threeOpcodes) { command: Command, expected: List<Int> ->
                     val result = command.execute(startRegisters)
