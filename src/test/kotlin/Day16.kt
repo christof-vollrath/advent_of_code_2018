@@ -1,9 +1,13 @@
 import org.amshove.kluent.`should equal`
+import org.amshove.kluent.`should contain all`
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
 import org.jetbrains.spek.data_driven.data
+import kotlin.reflect.KClass
+import kotlin.reflect.full.createInstance
+import kotlin.reflect.full.primaryConstructor
 import org.jetbrains.spek.data_driven.on as onData
 
 /*
@@ -211,6 +215,57 @@ data class Eqrr(val a: Int, val b: Int, val c: Int) : Command(0) {
     }
 }
 
+val allCommands = listOf(Addr::class, Addi::class, Mulr::class, Muli::class,
+                        Banr::class, Bani::class, Borr::class, Bori::class,
+                        Setr::class, Seti::class,
+                        Gtir::class, Gtri::class, Gtrr::class,
+                        Eqir::class, Eqri::class, Eqrr::class)
+
+
+fun parseRegisters(input: String): List<Int> {
+    val regex = """(Before: |After:  )\[(\d+), (\d+), (\d+), (\d+)\]""".toRegex()
+    val match = regex.find(input) ?: throw IllegalArgumentException("Can not parse input $input")
+    if (match.groupValues.size != 6) throw IllegalArgumentException("Only ${match.groupValues.size} elements parsed $input")
+    val values = match.groupValues
+    return listOf(values[2].toInt(), values[3].toInt(), values[4].toInt(), values[5].toInt())
+}
+
+fun parseOpcodes(input: String): List<Int> {
+    val regex = """(\d+) (\d+) (\d+) (\d+)""".toRegex()
+    val match = regex.find(input) ?: throw IllegalArgumentException("Can not parse input $input")
+    if (match.groupValues.size != 5) throw IllegalArgumentException("Only ${match.groupValues.size} elements parsed $input")
+    val values = match.groupValues
+    return listOf(values[1].toInt(), values[2].toInt(), values[3].toInt(), values[4].toInt())
+}
+
+fun parseBeforeAfter(input: String): List<BeforeAfter> =
+        input.split("\n")
+                .mapIndexed() { i, line ->
+                    when(i % 4) {
+                        0 -> parseRegisters(line)
+                        1 -> parseOpcodes(line)
+                        2 -> parseRegisters(line)
+                        else -> null
+                    }
+                }
+                .chunked(4)
+                .map { chunk ->
+                    val chunkNotNull = chunk.filterNotNull()
+                    BeforeAfter(chunkNotNull[0], chunkNotNull[1], chunkNotNull[2])
+                }
+
+data class BeforeAfter(val before: List<Int>, val opcode: List<Int>, val after: List<Int>) {
+    fun checkCommand(commandKlass: KClass<out Command>): Boolean {
+        val params = opcode.drop(1)
+        val array = params.toTypedArray()
+
+        val command = commandKlass.primaryConstructor!!.call(* array)
+        return command.execute(before) == after
+    }
+
+    fun countPossibleCommands(allCommands: List<KClass<out Command>>) = allCommands.count { checkCommand(it) }
+}
+
 class Day16Spec : Spek({
 
     describe("part 1") {
@@ -271,5 +326,78 @@ class Day16Spec : Spek({
 
             }
         }
+        describe("parse input") {
+            given("before input line") {
+                val input = "Before: [3, 2, 1, 1]"
+                it("should be parsed to a list of registers") {
+                    parseRegisters(input) `should equal` listOf(3, 2, 1, 1)
+                }
+            }
+            given("opcode line") {
+                val input = "9 2 1 2"
+                it("should be parsed to a list of op codes") {
+                    parseOpcodes(input) `should equal` listOf(9, 2, 1, 2)
+                }
+            }
+            given("example input") {
+                val input = """
+                    Before: [3, 2, 1, 1]
+                    9 2 1 2
+                    After:  [3, 2, 2, 1]
+
+                """.trimIndent()
+                it("should parse input correctly") {
+                    parseBeforeAfter(input) `should equal` listOf(BeforeAfter(
+                            before = listOf(3, 2, 1, 1),
+                            opcode = listOf(9, 2, 1, 2),
+                            after = listOf(3, 2, 2, 1)
+                    ))
+                }
+            }
+        }
+        describe("find possible commands") {
+            given("example input") {
+                val input = """
+                    Before: [3, 2, 1, 1]
+                    9 2 1 2
+                    After:  [3, 2, 2, 1]
+
+                """.trimIndent()
+                val beforeAfter = parseBeforeAfter(input)[0]
+                it("should find possible commands") {
+                    allCommands.filter { command ->
+                        beforeAfter.checkCommand(command)
+                    } `should contain all` listOf( Mulr::class, Addi::class, Seti::class)
+                }
+            }
+        }
+        describe("count possible commands") {
+            given("example input") {
+                val input = """
+                    Before: [3, 2, 1, 1]
+                    9 2 1 2
+                    After:  [3, 2, 2, 1]
+
+                """.trimIndent()
+                val beforeAfter = parseBeforeAfter(input)[0]
+                it("should count possible commands") {
+                    beforeAfter.countPossibleCommands(allCommands) `should equal` 3
+                }
+            }
+        }
+        describe("exercise") {
+            given("exercise input") {
+                val input = readResource("day16Input1.txt")
+                val beforeAfters = parseBeforeAfter(input)
+                it("should have parsed right number of before afters") {
+                    beforeAfters.size `should equal` 793
+                }
+                val filter3orMore = beforeAfters.map { it.countPossibleCommands(allCommands) }.filter { it >= 3}
+                it("should cound samples with 3 or more matching opcodes") {
+                    filter3orMore.size `should equal` 493
+                }
+            }
+        }
+
     }
 })
