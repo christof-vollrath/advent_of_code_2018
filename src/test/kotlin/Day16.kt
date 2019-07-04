@@ -6,7 +6,6 @@ import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
 import org.jetbrains.spek.data_driven.data
 import kotlin.reflect.KClass
-import kotlin.reflect.full.createInstance
 import kotlin.reflect.full.primaryConstructor
 import org.jetbrains.spek.data_driven.on as onData
 
@@ -245,7 +244,7 @@ fun parseOpcodes(input: String): List<Int> {
     return listOf(values[1].toInt(), values[2].toInt(), values[3].toInt(), values[4].toInt())
 }
 
-fun parseBeforeAfter(input: String): List<BeforeAfter> =
+fun parseCodeSamples(input: String): List<CodeSample> =
         input.split("\n")
                 .mapIndexed() { i, line ->
                     when(i % 4) {
@@ -258,10 +257,10 @@ fun parseBeforeAfter(input: String): List<BeforeAfter> =
                 .chunked(4)
                 .map { chunk ->
                     val chunkNotNull = chunk.filterNotNull()
-                    BeforeAfter(chunkNotNull[0], chunkNotNull[1], chunkNotNull[2])
+                    CodeSample(chunkNotNull[0], chunkNotNull[1], chunkNotNull[2])
                 }
 
-data class BeforeAfter(val before: List<Int>, val opcode: List<Int>, val after: List<Int>) {
+data class CodeSample(val before: List<Int>, val opcode: List<Int>, val after: List<Int>) {
     fun checkCommand(commandKlass: KClass<out Command>): Boolean {
         val params = opcode.drop(1)
         val array = params.toTypedArray()
@@ -356,7 +355,7 @@ class Day16Spec : Spek({
 
                 """.trimIndent()
                 it("should parse input correctly") {
-                    parseBeforeAfter(input) `should equal` listOf(BeforeAfter(
+                    parseCodeSamples(input) `should equal` listOf(CodeSample(
                             before = listOf(3, 2, 1, 1),
                             opcode = listOf(9, 2, 1, 2),
                             after = listOf(3, 2, 2, 1)
@@ -372,7 +371,7 @@ class Day16Spec : Spek({
                     After:  [3, 2, 2, 1]
 
                 """.trimIndent()
-                val beforeAfter = parseBeforeAfter(input)[0]
+                val beforeAfter = parseCodeSamples(input)[0]
                 it("should find possible commands") {
                     allCommands.filter { command ->
                         beforeAfter.checkCommand(command)
@@ -388,7 +387,7 @@ class Day16Spec : Spek({
                     After:  [3, 2, 2, 1]
 
                 """.trimIndent()
-                val beforeAfter = parseBeforeAfter(input)[0]
+                val beforeAfter = parseCodeSamples(input)[0]
                 it("should count possible commands") {
                     beforeAfter.countPossibleCommands(allCommands) `should equal` 3
                 }
@@ -397,11 +396,11 @@ class Day16Spec : Spek({
         describe("exercise") {
             given("exercise input") {
                 val input = readResource("day16Input1.txt")
-                val beforeAfters = parseBeforeAfter(input)
+                val codeSamples = parseCodeSamples(input)
                 it("should have parsed right number of before afters") {
-                    beforeAfters.size `should equal` 793
+                    codeSamples.size `should equal` 793
                 }
-                val filter3orMore = beforeAfters.map { it.countPossibleCommands(allCommands) }.filter { it >= 3}
+                val filter3orMore = codeSamples.map { it.countPossibleCommands(allCommands) }.filter { it >= 3}
                 it("should cound samples with 3 or more matching opcodes") {
                     filter3orMore.size `should equal` 493
                 }
@@ -409,15 +408,47 @@ class Day16Spec : Spek({
         }
     }
     describe("part 2") {
+        describe("solve op code map") {
+            given("a unique input") {
+                val input = """
+                    Before: [3, 2, 3, 2]
+                    2 1 3 3
+                    After:  [3, 2, 3, 3]
+
+                """.trimIndent()
+                val codeSamples = parseCodeSamples(input)
+                it("should find resulting map") {
+                    val opcodeMap = solveOpCodeMap(codeSamples)
+                    opcodeMap `should equal` mapOf(2 to Bori::class)
+                }
+            }
+            given("a not so unique input") {
+                val input = """
+                    Before: [3, 2, 3, 2]
+                    2 1 3 3
+                    After:  [3, 2, 3, 3]
+
+                    Before: [0, 3, 0, 2]
+                    4 2 1 0
+                    After:  [1, 3, 0, 2]
+
+                """.trimIndent()
+                val codeSamples = parseCodeSamples(input)
+                it("should find resulting map") {
+                    val opcodeMap = solveOpCodeMap(codeSamples)
+                    opcodeMap `should equal` mapOf(2 to Bori::class, 4 to Addi::class)
+                }
+            }
+        }
         given("exercise input") {
             val input = readResource("day16Input1.txt")
-            val beforeAfters = parseBeforeAfter(input)
+            val codeSamples = parseCodeSamples(input)
             it("should calculate which samples have only 1 matching opcode") {
-                val filter1 = beforeAfters.map { it.countPossibleCommands(allCommands) }.filter { it == 1}
+                val filter1 = codeSamples.map { it.countPossibleCommands(allCommands) }.filter { it == 1}
                 filter1.size `should equal` 46
             }
             it("should find unique match") {
-                val opcodeMap = beforeAfters.map { it.opcode[0] to it.findCommands(allCommands) }
+                val opcodeMap = codeSamples.map { it.opcode[0] to it.findCommands(allCommands) }
                         .filter { it.second.size == 1 }
                         .distinctBy { it.first }
                         .map{it.first to it.second.first() }
@@ -425,14 +456,41 @@ class Day16Spec : Spek({
                 opcodeMap `should equal` mapOf(2 to Bori::class) // 2 -> bori
             }
             it("should find next match") {
-                val opcodeMap = beforeAfters.map { it.opcode[0] to it.findCommands(allCommands) }
-                        .filter { it.second.size == 2 && it.second.contains(Bori::class) }
+                val alreadySolved = setOf(Bori::class)
+                val opcodeMap = codeSamples.map { it.opcode[0] to it.findCommands(allCommands) }
+                        .filter { it.second.filter { it !in alreadySolved }.size == 1 }
                         .distinctBy { it.first }
                         .map{it.first to it.second.minus(Bori::class).first() }
                         .toMap()
                 opcodeMap `should equal` mapOf(4 to Addi::class, 1 to Muli::class)
             }
+            it("should find result") {
+                val opcodeMap = solveOpCodeMap(codeSamples)
+                opcodeMap `should equal` mapOf(2 to Bori::class, 4 to Addi::class)
+            }
         }
     }
 
 })
+
+fun solveOpCodeMap(codeSamples: List<CodeSample>): Map<Int, KClass<out Command>> {
+    val result = mutableMapOf<Int, KClass<out Command>>()
+    val alreadySolved = mutableSetOf<KClass<out Command>>()
+    val opCodesWithPossibleCommands = codeSamples.map { it.opcode[0] to it.findCommands(allCommands) }.toMap()
+    while(true) {
+        val nextMap = solveUniqueOpCodeMap(opCodesWithPossibleCommands, alreadySolved)
+        println(nextMap)
+        if (nextMap.isEmpty()) return result
+        result.putAll(nextMap)
+        alreadySolved.addAll(nextMap.values)
+        println(result)
+        println(alreadySolved)
+    }
+}
+
+fun solveUniqueOpCodeMap(opCodesWithPossibleCommands: Map<Int, List<KClass<out Command>>>, alreadySolved: Set<KClass<out Command>>): Map<Int, KClass<out Command>> =
+        opCodesWithPossibleCommands.entries
+                .filter { it.value.filter { it !in alreadySolved }.size == 1 }
+                .distinctBy { it.key }
+                .map{it.key to it.value.first() }
+                .toMap()
