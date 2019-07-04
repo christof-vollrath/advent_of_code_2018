@@ -464,9 +464,14 @@ class Day16Spec : Spek({
                         .toMap()
                 opcodeMap `should equal` mapOf(4 to Addi::class, 1 to Muli::class)
             }
-            it("should find result") {
+            it("should find map of commands") {
                 val opcodeMap = solveOpCodeMap(codeSamples)
-                opcodeMap `should equal` mapOf(2 to Bori::class, 4 to Addi::class)
+                opcodeMap `should equal` mapOf(
+                        2 to Bori::class, 4 to Addi::class, 13 to Mulr::class, 1 to Muli::class, 11 to Addr::class,
+                        8 to Borr::class, 14 to Seti::class, 7 to Gtir::class, 0 to Banr::class, 10 to Bani::class,
+                        3 to Setr::class, 9 to Eqri::class, 15 to Gtrr::class, 12 to Eqir::class, 6 to Gtri::class,
+                        5 to Eqrr::class
+                )
             }
         }
     }
@@ -479,12 +484,9 @@ fun solveOpCodeMap(codeSamples: List<CodeSample>): Map<Int, KClass<out Command>>
     val opCodesWithPossibleCommands = codeSamples.map { it.opcode[0] to it.findCommands(allCommands) }.toMap()
     while(true) {
         val nextMap = solveUniqueOpCodeMap(opCodesWithPossibleCommands, alreadySolved)
-        println(nextMap)
         if (nextMap.isEmpty()) return result
         result.putAll(nextMap)
         alreadySolved.addAll(nextMap.values)
-        println(result)
-        println(alreadySolved)
     }
 }
 
@@ -492,5 +494,5 @@ fun solveUniqueOpCodeMap(opCodesWithPossibleCommands: Map<Int, List<KClass<out C
         opCodesWithPossibleCommands.entries
                 .filter { it.value.filter { it !in alreadySolved }.size == 1 }
                 .distinctBy { it.key }
-                .map{it.key to it.value.first() }
+                .map{it.key to it.value.filter { it !in alreadySolved }.first() }
                 .toMap()
