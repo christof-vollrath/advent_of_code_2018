@@ -4,6 +4,7 @@ import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
+import org.jetbrains.spek.api.dsl.on
 import org.jetbrains.spek.data_driven.data
 import kotlin.reflect.KClass
 import kotlin.reflect.full.primaryConstructor
@@ -229,7 +230,7 @@ val allCommands = listOf(Addr::class, Addi::class, Mulr::class, Muli::class,
 
 
 fun parseRegisters(input: String): List<Int> {
-    val regex = """(Before: |After:  )\[(\d+), (\d+), (\d+), (\d+)\]""".toRegex()
+    val regex = """(Before: |After: +)\[(\d+), (\d+), (\d+), (\d+)]""".toRegex()
     val match = regex.find(input) ?: throw IllegalArgumentException("Can not parse input $input")
     if (match.groupValues.size != 6) throw IllegalArgumentException("Only ${match.groupValues.size} elements parsed $input")
     val values = match.groupValues
@@ -259,6 +260,45 @@ fun parseCodeSamples(input: String): List<CodeSample> =
                     val chunkNotNull = chunk.filterNotNull()
                     CodeSample(chunkNotNull[0], chunkNotNull[1], chunkNotNull[2])
                 }
+fun solveOpCodeMap(codeSamples: List<CodeSample>): Map<Int, KClass<out Command>> {
+    val result = mutableMapOf<Int, KClass<out Command>>()
+    val alreadySolved = mutableSetOf<KClass<out Command>>()
+    val opCodesWithPossibleCommands = codeSamples.map { it.opcode[0] to it.findCommands(allCommands) }.toMap()
+    while(true) {
+        val nextMap = solveUniqueOpCodeMap(opCodesWithPossibleCommands, alreadySolved)
+        if (nextMap.isEmpty()) return result
+        result.putAll(nextMap)
+        alreadySolved.addAll(nextMap.values)
+    }
+}
+
+fun solveUniqueOpCodeMap(opCodesWithPossibleCommands: Map<Int, List<KClass<out Command>>>, alreadySolved: Set<KClass<out Command>>): Map<Int, KClass<out Command>> =
+        opCodesWithPossibleCommands.entries
+                .filter { it.value.filter { it !in alreadySolved }.size == 1 }
+                .distinctBy { it.key }
+                .map{it.key to it.value.first { it !in alreadySolved } }
+                .toMap()
+
+fun parseCode(inputCode: String): List<List<Int>>  =
+        inputCode.split("\n")
+                .map { parseOpcodes(it) }
+
+fun compile(opcodeMap: Map<Int, KClass<out Command>>, code: List<List<Int>>): List<Command> =
+        code.map { opcode ->
+            val commandKlass = opcodeMap[opcode[0]] ?: throw IllegalAccessException("No command found for opcode ${opcode[0]}")
+            val params = opcode.drop(1)
+            val array = params.toTypedArray()
+
+            commandKlass.primaryConstructor!!.call(* array)
+        }
+
+fun executeCode(opcodeMap: Map<Int, KClass<out Command>>, code: List<List<Int>>): List<Int> {
+    val compiledCode = compile(opcodeMap, code)
+    val startRegisters = List(4) { 0 }
+    return compiledCode.fold(startRegisters) { registers: List<Int>, command: Command ->
+        command.execute(registers)
+    }
+}
 
 fun solveOpCodeMap(codeSamples: List<CodeSample>): Map<Int, KClass<out Command>> {
     val result = mutableMapOf<Int, KClass<out Command>>()
@@ -459,6 +499,22 @@ class Day16Spec : Spek({
                 }
             }
         }
+        describe("parse code") {
+            given("some input code") {
+                val inputCode = """
+                    1 0 0 1
+                    4 1 1 1
+                    14 0 0 3
+                """.trimIndent()
+                it("should be parsed correctly") {
+                    parseCode(inputCode) `should equal` listOf(
+                            listOf( 1, 0, 0, 1),
+                            listOf( 4, 1, 1, 1),
+                            listOf(14, 0, 0, 3)
+                    )
+                }
+            }
+        }
         given("exercise input") {
             val input = readResource("day16Input1.txt")
             val codeSamples = parseCodeSamples(input)
@@ -483,14 +539,36 @@ class Day16Spec : Spek({
                         .toMap()
                 opcodeMap `should equal` mapOf(4 to Addi::class, 1 to Muli::class)
             }
-            it("should find map of commands") {
+            on("finding the code map matching to the samples") {
                 val opcodeMap = solveOpCodeMap(codeSamples)
-                opcodeMap `should equal` mapOf(
-                        2 to Bori::class, 4 to Addi::class, 13 to Mulr::class, 1 to Muli::class, 11 to Addr::class,
-                        8 to Borr::class, 14 to Seti::class, 7 to Gtir::class, 0 to Banr::class, 10 to Bani::class,
-                        3 to Setr::class, 9 to Eqri::class, 15 to Gtrr::class, 12 to Eqir::class, 6 to Gtri::class,
-                        5 to Eqrr::class
-                )
+                it("should have found the right map of commands") {
+                    opcodeMap `should equal` mapOf(
+                            2 to Bori::class, 4 to Addi::class, 13 to Mulr::class, 1 to Muli::class, 11 to Addr::class,
+                            8 to Borr::class, 14 to Seti::class, 7 to Gtir::class, 0 to Banr::class, 10 to Bani::class,
+                            3 to Setr::class, 9 to Eqri::class, 15 to Gtrr::class, 12 to Eqir::class, 6 to Gtri::class,
+                            5 to Eqrr::class
+                    )
+                }
+                val testCodeInput = """
+                                    1 0 0 1
+                                    4 1 1 1
+                                    14 0 0 3
+                                """.trimIndent()
+                // MULI 0 0 1 # 0 0 0 0
+                // ADDI 1 1 1 # 0 1 0 0
+                // SETI 0 0 3 # 0 1 0 0
+                val testCode = parseCode(testCodeInput)
+                it("should execute test code correctly") {
+                    val result = executeCode(opcodeMap, testCode)
+                    result `should equal` listOf(0, 1, 0, 0)
+                }
+                it("should execute the sample code") {
+                    val inputCode = readResource("day16Input2.txt")
+                    val code = parseCode(inputCode)
+                    val registers = executeCode(opcodeMap, code)
+                    val register0 = registers.first()
+                    register0 `should equal` 445
+                }
             }
         }
     }
