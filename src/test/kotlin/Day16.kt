@@ -260,6 +260,25 @@ fun parseCodeSamples(input: String): List<CodeSample> =
                     CodeSample(chunkNotNull[0], chunkNotNull[1], chunkNotNull[2])
                 }
 
+fun solveOpCodeMap(codeSamples: List<CodeSample>): Map<Int, KClass<out Command>> {
+    val result = mutableMapOf<Int, KClass<out Command>>()
+    val alreadySolved = mutableSetOf<KClass<out Command>>()
+    val opCodesWithPossibleCommands = codeSamples.map { it.opcode[0] to it.findCommands(allCommands) }.toMap()
+    while(true) {
+        val nextMap = solveUniqueOpCodeMap(opCodesWithPossibleCommands, alreadySolved)
+        if (nextMap.isEmpty()) return result
+        result.putAll(nextMap)
+        alreadySolved.addAll(nextMap.values)
+    }
+}
+
+fun solveUniqueOpCodeMap(opCodesWithPossibleCommands: Map<Int, List<KClass<out Command>>>, alreadySolved: Set<KClass<out Command>>): Map<Int, KClass<out Command>> =
+        opCodesWithPossibleCommands.entries
+                .filter { it.value.filter { it !in alreadySolved }.size == 1 }
+                .distinctBy { it.key }
+                .map{it.key to it.value.filter { it !in alreadySolved }.first() }
+                .toMap()
+
 data class CodeSample(val before: List<Int>, val opcode: List<Int>, val after: List<Int>) {
     fun checkCommand(commandKlass: KClass<out Command>): Boolean {
         val params = opcode.drop(1)
@@ -477,22 +496,3 @@ class Day16Spec : Spek({
     }
 
 })
-
-fun solveOpCodeMap(codeSamples: List<CodeSample>): Map<Int, KClass<out Command>> {
-    val result = mutableMapOf<Int, KClass<out Command>>()
-    val alreadySolved = mutableSetOf<KClass<out Command>>()
-    val opCodesWithPossibleCommands = codeSamples.map { it.opcode[0] to it.findCommands(allCommands) }.toMap()
-    while(true) {
-        val nextMap = solveUniqueOpCodeMap(opCodesWithPossibleCommands, alreadySolved)
-        if (nextMap.isEmpty()) return result
-        result.putAll(nextMap)
-        alreadySolved.addAll(nextMap.values)
-    }
-}
-
-fun solveUniqueOpCodeMap(opCodesWithPossibleCommands: Map<Int, List<KClass<out Command>>>, alreadySolved: Set<KClass<out Command>>): Map<Int, KClass<out Command>> =
-        opCodesWithPossibleCommands.entries
-                .filter { it.value.filter { it !in alreadySolved }.size == 1 }
-                .distinctBy { it.key }
-                .map{it.key to it.value.filter { it !in alreadySolved }.first() }
-                .toMap()
