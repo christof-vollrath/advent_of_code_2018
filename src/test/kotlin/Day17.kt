@@ -3,6 +3,8 @@ import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
+import java.lang.Integer.max
+import java.lang.Integer.min
 
 /*
 --- Day 17: Reservoir Research ---
@@ -210,6 +212,7 @@ class Day17Spec : Spek({
                 """.trimIndent()
                 it("should be parsed correctly") {
                     val scan = processScanData(parseGroundScan(scanData))
+                    println(scan.toString())
                     scan.toString() `should equal` """
                         ......+.......
                         ............#.
@@ -224,8 +227,9 @@ class Day17Spec : Spek({
                         ....#.....#...
                         ....#.....#...
                         ....#.....#...
-                        ....#######...                        
-                    """.trimIndent()
+                        ....#######...
+
+                        """.trimIndent()
                 }
             }
         }
@@ -233,16 +237,40 @@ class Day17Spec : Spek({
 })
 
 fun processScanData(scanDatas: List<ScanData>): GroundScan {
-    return emptyArray()
+    val springX = 500
+    val springY = 0
+    val maxXScanData =  scanDatas.map { it.xRange.last }.max()!!
+    val maxX = max(maxXScanData, springX)
+    val minXScanData =  scanDatas.map { it.xRange.first }.min()!!
+    val minX = min(minXScanData, springX)
+    val maxY =  scanDatas.map { it.yRange.last }.max()!!
+    val xOffset = minX - 1
+    val grid = Array(maxY + 1) { Array<GroundGridElement> (maxX - xOffset + 2) { GroundGridElement.DRY_SAND } }
+    scanDatas.forEach { scanData ->
+        scanData.xRange.forEach { x ->
+            scanData.yRange.forEach { y ->
+                grid[y][x - xOffset] = GroundGridElement.CLAY
+            }
+        }
+    }
+    grid[springY][springX - xOffset] = GroundGridElement.SPRING
+    return GroundScan(xOffset, grid)
 }
 
-typealias GroundScan = Array<Array<GroundGridElement>>
+data class GroundScan(val xOffset: Int = 0, val grid: Array<Array<GroundGridElement>> = emptyArray()) {
+    override fun toString() =
+            grid.map { row ->
+                row.map { element -> element.toString()}
+                        .joinToString("", postfix = "\n")
+            }.joinToString("")
+}
 
 enum class GroundGridElement(val c: Char) {
     DRY_SAND('.'),
     WET_SAND('|'),
     CLAY('#'),
-    WATER('~');
+    WATER('~'),
+    SPRING('+');
 
     override fun toString() = c.toString()
 }
