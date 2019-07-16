@@ -3,7 +3,7 @@ import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
-import org.jetbrains.spek.api.dsl.on
+import java.lang.IllegalStateException
 import java.lang.Integer.max
 import java.lang.Integer.min
 
@@ -212,8 +212,8 @@ class Day17Spec : Spek({
                     y=13, x=498..504
                 """.trimIndent()
                 val springCoord = GridCoord(500, 0)
-                val scan = processScanData(parseGroundScan(scanData), springCoord)
                 it("should be parsed correctly") {
+                    val scan = processScanData(parseGroundScan(scanData), springCoord)
                     scan.toString() `should equal` """
                         ......+.......
                         ............#.
@@ -233,7 +233,8 @@ class Day17Spec : Spek({
                         """.trimIndent()
                 }
                 it(" should have water flow down") {
-                    val result = processOneStep(listOf(springCoord), scan)
+                    val scan = processScanData(parseGroundScan(scanData), springCoord)
+                    val result = flowDown(springCoord, scan)
                     scan.toString() `should equal` """
                         ......+.......
                         ......|.....#.
@@ -251,6 +252,28 @@ class Day17Spec : Spek({
                         ....#######...
 
                         """.trimIndent()
+                    result `should equal` GridCoord(500, 6)
+                }
+                it(" should process one step") {
+                    val scan = processScanData(parseGroundScan(scanData), springCoord)
+                    val result = processOneStep(listOf(springCoord), scan)
+                    scan.toString() `should equal` """
+                        ......+.......
+                        ......|.....#.
+                        .#..#.|.....#.
+                        .#..#~~#......
+                        .#..#~~#......
+                        .#~~~~~#......
+                        .#~~~~~#......
+                        .#######......
+                        ..............
+                        ..............
+                        ....#.....#...
+                        ....#.....#...
+                        ....#.....#...
+                        ....#######...
+
+                        """.trimIndent()
                     result `should equal` listOf(GridCoord(500, 6))
                 }
             }
@@ -258,17 +281,49 @@ class Day17Spec : Spek({
     }
 })
 
-fun processOneStep(coords: List<GridCoord>, scan: GroundScan): List<GridCoord> =
-    coords.mapNotNull {
+fun processOneStep(coords: List<GridCoord>, scan: GroundScan): List<GridCoord> {
+    val afterFlowDown = coords.mapNotNull {
         flowDown(it, scan)
     }
+    return afterFlowDown.mapNotNull {
+        fillWithWater(it, scan)
+    }
+}
+
+fun fillWithWater(coord: GridCoord, scan: GroundScan): GridCoord {
+    fun hasBorder(coord: GridCoord, dir: Int): Boolean {
+        val range = if (dir < 0) scan.xOffset..coord.x
+        else coord.x..scan.maxX
+        for (x in range) {
+            if (scan[GridCoord(x, coord.y + 1)] != GroundGridElement.CLAY)
+                return false
+            if (scan[GridCoord(x, coord.y)] == GroundGridElement.CLAY)
+                return true
+        }
+        throw IllegalStateException("Unexpected scan data in line ${coord.y}")
+    }
+    fun fillLine(coord: GridCoord, dir: Int) {
+        val range = if (dir < 0) scan.xOffset..coord.x
+        else coord.x..scan.maxX
+        for (x in range) {
+            if (scan[GridCoord(x, coord.x)] == GroundGridElement.CLAY)
+                return
+            else scan[GridCoord(x, coord.y)] = GroundGridElement.WATER
+        }
+    }
+    if (hasBorder(coord, 1) && hasBorder(coord, -1)) {
+        fillLine(coord, 1)
+        fillLine(coord, -1)
+    }
+    return coord
+}
 
 fun flowDown(coord: GridCoord, scan: GroundScan): GridCoord? {
     var currCoord: GridCoord? = null
-    for (y in coord.y+1 .. scan.grid.size) {
-        if (scan.grid[y][coord.x-scan.xOffset] == GroundGridElement.DRY_SAND) {
+    for (y in coord.y+1 .. scan.maxY) {
+        if (scan[GridCoord(coord.x, y)] == GroundGridElement.DRY_SAND) {
             currCoord = GridCoord(coord.x, y)
-            scan.grid[currCoord.y][currCoord.x-scan.xOffset] = GroundGridElement.WET_SAND
+            scan[currCoord] = GroundGridElement.WET_SAND
         } else return currCoord
     }
     return currCoord
@@ -282,18 +337,23 @@ fun processScanData(scanDatas: List<ScanData>, springCoord: GridCoord): GroundSc
     val maxY =  scanDatas.map { it.yRange.last }.max()!!
     val xOffset = minX - 1
     val grid = Array(maxY + 1) { Array<GroundGridElement> (maxX - xOffset + 2) { GroundGridElement.DRY_SAND } }
+    val result = GroundScan(xOffset, grid, maxX, maxY)
     scanDatas.forEach { scanData ->
         scanData.xRange.forEach { x ->
             scanData.yRange.forEach { y ->
-                grid[y][x - xOffset] = GroundGridElement.CLAY
+                result[GridCoord(x, y)] =  GroundGridElement.CLAY
             }
         }
     }
-    grid[springCoord.y][springCoord.x - xOffset] = GroundGridElement.SPRING
-    return GroundScan(xOffset, grid)
+    result[springCoord] = GroundGridElement.SPRING
+    return result
 }
 
-data class GroundScan(val xOffset: Int = 0, val grid: Array<Array<GroundGridElement>> = emptyArray()) {
+data class GroundScan(val xOffset: Int = 0, val grid: Array<Array<GroundGridElement>> = emptyArray(), val maxX: Int, val maxY: Int) {
+    operator fun get(coord: GridCoord) = grid[coord.y][coord.x-xOffset]
+    operator fun set(coord: GridCoord, element: GroundGridElement) {
+        grid[coord.y][coord.x-xOffset] = element
+    }
     override fun toString() =
             grid.map { row ->
                 row.map { element -> element.toString()}
