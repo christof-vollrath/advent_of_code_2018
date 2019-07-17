@@ -246,7 +246,7 @@ fun parseOpcodes(input: String): List<Int> {
 
 fun parseCodeSamples(input: String): List<CodeSample> =
         input.split("\n")
-                .mapIndexed() { i, line ->
+                .mapIndexed { i, line ->
                     when(i % 4) {
                         0 -> parseRegisters(line)
                         1 -> parseOpcodes(line)

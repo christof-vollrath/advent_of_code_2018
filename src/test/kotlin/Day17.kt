@@ -192,16 +192,8 @@ How many tiles can the water reach within the range of y values in your scan?
 class Day17Spec : Spek({
 
     describe("part 1") {
-        describe("parse ground scan") {
-            given("scan data line") {
-                val scanDataLine = "x=495, y=2..7"
-                it("should be parsed correctly") {
-                    val scanLine = parseScanData(scanDataLine)
-                    scanLine `should equal` ScanData(IntRange(495, 495), IntRange(2, 7))
-                }
-            }
-            given("example scan data") {
-                val scanData = """
+        given("example scan data") {
+            val scanData = """
                     x=495, y=2..7
                     y=7, x=495..501
                     x=501, y=3..7
@@ -211,8 +203,17 @@ class Day17Spec : Spek({
                     x=504, y=10..13
                     y=13, x=498..504
                 """.trimIndent()
-                val springCoord = GridCoord(500, 0)
-                it("should be parsed correctly") {
+            val springCoord = GridCoord(500, 0)
+
+            describe("parse ground scan") {
+                given("scan data line") {
+                    val scanDataLine = "x=495, y=2..7"
+                    it("should be parsed correctly") {
+                        val scanLine = parseScanData(scanDataLine)
+                        scanLine `should equal` ScanData(IntRange(495, 495), IntRange(2, 7))
+                    }
+                }
+                it("should parse scan data correctly") {
                     val scan = processScanData(parseGroundScan(scanData), springCoord)
                     scan.toString() `should equal` """
                         ......+.......
@@ -232,6 +233,22 @@ class Day17Spec : Spek({
 
                         """.trimIndent()
                 }
+            }
+            describe("hasBorder to decide if something has to be filled") {
+                given("example scan") {
+                    val scan = processScanData(parseGroundScan(scanData), springCoord)
+
+                    it("should has find a border on the left side") {
+                        val coord = GridCoord(500, 6)
+                        hasBorder(coord, -1, scan) `should equal` true
+                    }
+                    it("should has find a border on the right side") {
+                        val coord = GridCoord(500, 6)
+                        hasBorder(coord, 1, scan) `should equal` true
+                    }
+                }
+            }
+            describe("let the water flow") {
                 it(" should have water flow down") {
                     val scan = processScanData(parseGroundScan(scanData), springCoord)
                     val result = flowDown(springCoord, scan)
@@ -274,7 +291,7 @@ class Day17Spec : Spek({
                         ....#######...
 
                         """.trimIndent()
-                    result `should equal` listOf(GridCoord(500, 6))
+                    result `should equal` listOf(GridCoord(500, 2))
                 }
             }
         }
@@ -285,37 +302,40 @@ fun processOneStep(coords: List<GridCoord>, scan: GroundScan): List<GridCoord> {
     val afterFlowDown = coords.mapNotNull {
         flowDown(it, scan)
     }
-    return afterFlowDown.mapNotNull {
+    return afterFlowDown.map {
         fillWithWater(it, scan)
     }
 }
 
 fun fillWithWater(coord: GridCoord, scan: GroundScan): GridCoord {
-    fun hasBorder(coord: GridCoord, dir: Int): Boolean {
-        val range = if (dir < 0) scan.xOffset..coord.x
-        else coord.x..scan.maxX
-        for (x in range) {
-            if (scan[GridCoord(x, coord.y + 1)] != GroundGridElement.CLAY)
-                return false
-            if (scan[GridCoord(x, coord.y)] == GroundGridElement.CLAY)
-                return true
-        }
-        throw IllegalStateException("Unexpected scan data in line ${coord.y}")
-    }
     fun fillLine(coord: GridCoord, dir: Int) {
-        val range = if (dir < 0) scan.xOffset..coord.x
+        val range = if (dir < 0) coord.x downTo scan.xOffset
         else coord.x..scan.maxX
         for (x in range) {
-            if (scan[GridCoord(x, coord.x)] == GroundGridElement.CLAY)
+            if (scan[GridCoord(x, coord.y)] == GroundGridElement.CLAY)
                 return
             else scan[GridCoord(x, coord.y)] = GroundGridElement.WATER
         }
     }
-    if (hasBorder(coord, 1) && hasBorder(coord, -1)) {
-        fillLine(coord, 1)
-        fillLine(coord, -1)
+    var currCoord = coord
+    while (hasBorder(currCoord, 1, scan) && hasBorder(currCoord, -1, scan)) {
+        fillLine(currCoord, 1)
+        fillLine(currCoord, -1)
+        currCoord = GridCoord(currCoord.x, currCoord.y - 1)
     }
-    return coord
+    return currCoord
+}
+
+fun hasBorder(coord: GridCoord, dir: Int, scan: GroundScan): Boolean {
+    val range = if (dir < 0) coord.x downTo scan.xOffset
+    else coord.x..scan.maxX
+    for (x in range) {
+        if (scan[GridCoord(x, coord.y + 1)] !in setOf(GroundGridElement.CLAY, GroundGridElement.WATER))
+            return false
+        if (scan[GridCoord(x, coord.y)] == GroundGridElement.CLAY)
+            return true
+    }
+    throw IllegalStateException("Unexpected scan data in line ${coord.y}")
 }
 
 fun flowDown(coord: GridCoord, scan: GroundScan): GridCoord? {
@@ -336,7 +356,7 @@ fun processScanData(scanDatas: List<ScanData>, springCoord: GridCoord): GroundSc
     val minX = min(minXScanData, springCoord.x)
     val maxY =  scanDatas.map { it.yRange.last }.max()!!
     val xOffset = minX - 1
-    val grid = Array(maxY + 1) { Array<GroundGridElement> (maxX - xOffset + 2) { GroundGridElement.DRY_SAND } }
+    val grid = Array(maxY + 1) { Array(maxX - xOffset + 2) { GroundGridElement.DRY_SAND } }
     val result = GroundScan(xOffset, grid, maxX, maxY)
     scanDatas.forEach { scanData ->
         scanData.xRange.forEach { x ->
