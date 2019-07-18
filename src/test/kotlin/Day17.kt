@@ -271,9 +271,10 @@ class Day17Spec : Spek({
                         """.trimIndent()
                     result `should equal` GridCoord(500, 6)
                 }
-                it(" should process one step") {
+                it("should fill up") {
                     val scan = processScanData(parseGroundScan(scanData), springCoord)
-                    val result = processOneStep(listOf(springCoord), scan)
+                    val afterFlowDown = flowDown(springCoord, scan)
+                    val result = fillWithWater(afterFlowDown, scan)
                     scan.toString() `should equal` """
                         ......+.......
                         ......|.....#.
@@ -291,94 +292,97 @@ class Day17Spec : Spek({
                         ....#######...
 
                         """.trimIndent()
-                    result `should equal` listOf(GridCoord(500, 2))
+                    result `should equal` GridCoord(500, 2)
+                }
+                it("overflow") {
+                    val scan = processScanData(parseGroundScan(scanData), springCoord)
+                    val afterFlowDown = flowDown(springCoord, scan)
+                    val afterFill = fillWithWater(afterFlowDown, scan)
+                    val result = overflowWithWater(afterFill, scan)
+                    scan.toString() `should equal` """
+                        ......+.......
+                        ......|.....#.
+                        .#..#||||...#.
+                        .#..#~~#......
+                        .#..#~~#......
+                        .#~~~~~#......
+                        .#~~~~~#......
+                        .#######......
+                        ..............
+                        ..............
+                        ....#.....#...
+                        ....#.....#...
+                        ....#.....#...
+                        ....#######...
+
+                        """.trimIndent()
+                    result `should equal` listOf(GridCoord(502, 2))
+                }
+                it("should simulate one step") {
+                    val scan = processScanData(parseGroundScan(scanData), springCoord)
+                    val result = simulateOneStep(listOf(springCoord), scan)
+                    scan.toString() `should equal` """
+                        ......+.......
+                        ......|.....#.
+                        .#..#||||...#.
+                        .#..#~~#......
+                        .#..#~~#......
+                        .#~~~~~#......
+                        .#~~~~~#......
+                        .#######......
+                        ..............
+                        ..............
+                        ....#.....#...
+                        ....#.....#...
+                        ....#.....#...
+                        ....#######...
+
+                        """.trimIndent()
+                    result `should equal` listOf(GridCoord(502, 2))
+                }
+                it("should simulate example") {
+                    val scan = processScanData(parseGroundScan(scanData), springCoord)
+                    simulateWaterFlow(listOf(springCoord), scan)
+                    scan.toString() `should equal` """
+                        ......+.......
+                        ......|.....#.
+                        .#..#||||...#.
+                        .#..#~~#|.....
+                        .#..#~~#|.....
+                        .#~~~~~#|.....
+                        .#~~~~~#|.....
+                        .#######|.....
+                        ........|.....
+                        ...|||||||||..
+                        ...|#~~~~~#|..
+                        ...|#~~~~~#|..
+                        ...|#~~~~~#|..
+                        ...|#######|..
+
+                        """.trimIndent()
+                    scan.countWater() `should equal` 57
                 }
             }
         }
     }
 })
 
-fun processOneStep(coords: List<GridCoord>, scan: GroundScan): List<GridCoord> {
-    val afterFlowDown = coords.mapNotNull {
-        flowDown(it, scan)
-    }
-    return afterFlowDown.map {
-        fillWithWater(it, scan)
-    }
-}
-
-fun fillWithWater(coord: GridCoord, scan: GroundScan): GridCoord {
-    fun fillLine(coord: GridCoord, dir: Int) {
-        val range = if (dir < 0) coord.x downTo scan.xOffset
-        else coord.x..scan.maxX
-        for (x in range) {
-            if (scan[GridCoord(x, coord.y)] == GroundGridElement.CLAY)
-                return
-            else scan[GridCoord(x, coord.y)] = GroundGridElement.WATER
-        }
-    }
-    var currCoord = coord
-    while (hasBorder(currCoord, 1, scan) && hasBorder(currCoord, -1, scan)) {
-        fillLine(currCoord, 1)
-        fillLine(currCoord, -1)
-        currCoord = GridCoord(currCoord.x, currCoord.y - 1)
-    }
-    return currCoord
-}
-
-fun hasBorder(coord: GridCoord, dir: Int, scan: GroundScan): Boolean {
-    val range = if (dir < 0) coord.x downTo scan.xOffset
-    else coord.x..scan.maxX
-    for (x in range) {
-        if (scan[GridCoord(x, coord.y + 1)] !in setOf(GroundGridElement.CLAY, GroundGridElement.WATER))
-            return false
-        if (scan[GridCoord(x, coord.y)] == GroundGridElement.CLAY)
-            return true
-    }
-    throw IllegalStateException("Unexpected scan data in line ${coord.y}")
-}
-
-fun flowDown(coord: GridCoord, scan: GroundScan): GridCoord? {
-    var currCoord: GridCoord? = null
-    for (y in coord.y+1 .. scan.maxY) {
-        if (scan[GridCoord(coord.x, y)] == GroundGridElement.DRY_SAND) {
-            currCoord = GridCoord(coord.x, y)
-            scan[currCoord] = GroundGridElement.WET_SAND
-        } else return currCoord
-    }
-    return currCoord
-}
-
-fun processScanData(scanDatas: List<ScanData>, springCoord: GridCoord): GroundScan {
-    val maxXScanData =  scanDatas.map { it.xRange.last }.max()!!
-    val maxX = max(maxXScanData, springCoord.x)
-    val minXScanData =  scanDatas.map { it.xRange.first }.min()!!
-    val minX = min(minXScanData, springCoord.x)
-    val maxY =  scanDatas.map { it.yRange.last }.max()!!
-    val xOffset = minX - 1
-    val grid = Array(maxY + 1) { Array(maxX - xOffset + 2) { GroundGridElement.DRY_SAND } }
-    val result = GroundScan(xOffset, grid, maxX, maxY)
-    scanDatas.forEach { scanData ->
-        scanData.xRange.forEach { x ->
-            scanData.yRange.forEach { y ->
-                result[GridCoord(x, y)] =  GroundGridElement.CLAY
-            }
-        }
-    }
-    result[springCoord] = GroundGridElement.SPRING
-    return result
-}
 
 data class GroundScan(val xOffset: Int = 0, val grid: Array<Array<GroundGridElement>> = emptyArray(), val maxX: Int, val maxY: Int) {
     operator fun get(coord: GridCoord) = grid[coord.y][coord.x-xOffset]
     operator fun set(coord: GridCoord, element: GroundGridElement) {
         grid[coord.y][coord.x-xOffset] = element
     }
+    fun countWater() = grid.map { row ->
+        row.filter { it in setOf(GroundGridElement.WET_SAND, GroundGridElement.WATER)  }
+                .count()
+    }.sum()
+
     override fun toString() =
-            grid.map { row ->
-                row.map { element -> element.toString()}
+            grid.joinToString("") { row ->
+                row.map { element -> element.toString() }
                         .joinToString("", postfix = "\n")
-            }.joinToString("")
+            }
 }
 
 enum class GroundGridElement(val c: Char) {
@@ -393,6 +397,7 @@ enum class GroundGridElement(val c: Char) {
 
 data class GridCoord(val x: Int, val y: Int)
 
+data class ScanData(val xRange: IntRange, val yRange: IntRange)
 
 fun parseGroundScan(scanData: String): List<ScanData> =
         scanData.split("\n")
@@ -415,4 +420,110 @@ fun parseScanRange(rangeString: String): IntRange {
     else IntRange(parts[0].toInt(), parts[0].toInt())
 }
 
-data class ScanData(val xRange: IntRange, val yRange: IntRange)
+fun processScanData(scanDatas: List<ScanData>, springCoord: GridCoord): GroundScan {
+    val maxXScanData =  scanDatas.map { it.xRange.last }.max()!!
+    val maxX = max(maxXScanData, springCoord.x)
+    val minXScanData =  scanDatas.map { it.xRange.first }.min()!!
+    val minX = min(minXScanData, springCoord.x)
+    val maxY =  scanDatas.map { it.yRange.last }.max()!!
+    val xOffset = minX - 1
+    val grid = Array(maxY + 1) { Array(maxX - xOffset + 2) { GroundGridElement.DRY_SAND } }
+    val result = GroundScan(xOffset, grid, maxX, maxY)
+    scanDatas.forEach { scanData ->
+        scanData.xRange.forEach { x ->
+            scanData.yRange.forEach { y ->
+                result[GridCoord(x, y)] =  GroundGridElement.CLAY
+            }
+        }
+    }
+    result[springCoord] = GroundGridElement.SPRING
+    return result
+}
+
+fun simulateWaterFlow(coords: List<GridCoord>, scan: GroundScan) {
+    fun List<GridCoord>.filterCoordsInScan(scan: GroundScan) = filter {
+        it.y <= scan.maxX
+    }
+    var currCoords = coords
+    while(currCoords.isNotEmpty()) {
+        currCoords = simulateOneStep(currCoords, scan).filterCoordsInScan(scan)
+    }
+}
+
+fun simulateOneStep(coords: List<GridCoord>, scan: GroundScan): List<GridCoord> {
+    val afterFlowDown = coords.map {
+        flowDown(it, scan)
+    }
+    val afterFillWithWater = afterFlowDown.map {
+        fillWithWater(it, scan)
+    }
+    return afterFillWithWater.flatMap {
+        overflowWithWater(it, scan)
+    }
+}
+
+fun flowDown(coord: GridCoord, scan: GroundScan): GridCoord {
+    var currCoord: GridCoord = coord
+    for (y in coord.y+1 .. scan.maxY) {
+        if (scan[GridCoord(coord.x, y)] == GroundGridElement.DRY_SAND) {
+            currCoord = GridCoord(coord.x, y)
+            scan[currCoord] = GroundGridElement.WET_SAND
+        } else return currCoord
+    }
+    return currCoord
+}
+
+fun fillWithWater(coord: GridCoord, scan: GroundScan): GridCoord {
+    fun fillLine(coord: GridCoord, dir: Int) {
+        val range = if (dir < 0) coord.x downTo scan.xOffset
+        else coord.x..scan.maxX
+        for (x in range) {
+            if (scan[GridCoord(x, coord.y)] == GroundGridElement.CLAY)
+                return
+            else scan[GridCoord(x, coord.y)] = GroundGridElement.WATER
+        }
+    }
+    if (coord.y >= scan.maxY) return coord // don't fill last scan line
+    var currCoord = coord
+    while (hasBorder(currCoord, 1, scan) && hasBorder(currCoord, -1, scan)) {
+        fillLine(currCoord, 1)
+        fillLine(currCoord, -1)
+        currCoord = GridCoord(currCoord.x, currCoord.y - 1)
+    }
+    return currCoord
+}
+
+fun overflowWithWater(coord: GridCoord, scan: GroundScan): List<GridCoord> {
+    fun overflowLine(coord: GridCoord, dir: Int): GridCoord? {
+        val range = if (dir < 0) coord.x downTo scan.xOffset
+        else coord.x..scan.maxX
+        for (x in range) {
+            if (scan[GridCoord(x, coord.y)] == GroundGridElement.CLAY)
+                return null
+            else {
+                scan[GridCoord(x, coord.y)] = GroundGridElement.WET_SAND
+                if (scan[GridCoord(x, coord.y + 1)] == GroundGridElement.DRY_SAND)
+                    return GridCoord(x, coord.y)
+            }
+        }
+        throw IllegalStateException("Could not overflow in line ${coord.y} dir $dir")
+    }
+    if (coord.y >= scan.maxY) return emptyList() // don't overflow last scan line
+    return if (!hasBorder(coord, 1, scan) || !hasBorder(coord, -1, scan)) {
+        val leftNextCoord = overflowLine(coord, -1)
+        val rightNextCoord = overflowLine(coord, 1)
+        listOfNotNull(leftNextCoord, rightNextCoord)
+    } else listOf(coord)
+}
+
+fun hasBorder(coord: GridCoord, dir: Int, scan: GroundScan): Boolean {
+    val range = if (dir < 0) coord.x downTo scan.xOffset
+    else coord.x..scan.maxX
+    for (x in range) {
+        if (scan[GridCoord(x, coord.y + 1)] !in setOf(GroundGridElement.CLAY, GroundGridElement.WATER))
+            return false
+        if (scan[GridCoord(x, coord.y)] == GroundGridElement.CLAY)
+            return true
+    }
+    throw IllegalStateException("Unexpected scan data in line ${coord.y}")
+}
