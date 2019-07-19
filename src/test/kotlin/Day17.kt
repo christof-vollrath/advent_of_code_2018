@@ -318,12 +318,12 @@ fun fillWithWater(coord: GridCoord, scan: GroundScan): GridCoord {
 
 fun overflowWithWater(coord: GridCoord, scan: GroundScan): List<GridCoord> {
     fun overflowLine(coord: GridCoord, dir: Int): GridCoord? {
-        val range = if (dir < 0) coord.x downTo scan.xOffset
-        else coord.x..scan.maxX
+        val range = if (dir < 0) coord.x-1 downTo scan.xOffset
+        else coord.x+1..scan.maxX
         for (x in range) {
-            if (scan[GridCoord(x, coord.y)] == GroundGridElement.CLAY)
+            if (scan[GridCoord(x, coord.y)] != GroundGridElement.DRY_SAND) {
                 return null
-            else {
+            } else {
                 scan[GridCoord(x, coord.y)] = GroundGridElement.WET_SAND
                 if (scan[GridCoord(x, coord.y + 1)] == GroundGridElement.DRY_SAND)
                     return GridCoord(x, coord.y)
@@ -523,6 +523,28 @@ class Day17Spec : Spek({
 
                         """.trimIndent()
                     scan.countWater() `should equal` 57
+                }
+                it("should simulate case where two flows colide") {
+                    val scan = processScanData(parseGroundScan(scanData), springCoord)
+                    simulateWaterFlow(listOf(springCoord, GridCoord(501, 0)), scan) // second spring
+                    scan.toString() `should equal` """
+                        ......+.......
+                        ......||....#.
+                        .#..#||||...#.
+                        .#..#~~#|.....
+                        .#..#~~#|.....
+                        .#~~~~~#|.....
+                        .#~~~~~#|.....
+                        .#######|.....
+                        ........|.....
+                        ...|||||||||..
+                        ...|#~~~~~#|..
+                        ...|#~~~~~#|..
+                        ...|#~~~~~#|..
+                        ...|#######|..
+
+                        """.trimIndent()
+                    scan.countWater() `should equal` 58
                 }
             }
         }
