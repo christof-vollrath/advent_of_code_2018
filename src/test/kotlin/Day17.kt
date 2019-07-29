@@ -299,7 +299,7 @@ fun flowDown(coord: GridCoord, scan: GroundScan): GridCoord {
 fun fillWithWater(coord: GridCoord, scan: GroundScan): GridCoord {
     fun fillLine(coord: GridCoord, dir: Int) {
         val range = if (dir < 0) coord.x downTo scan.xOffset
-        else coord.x..scan.maxX
+        else coord.x..scan.maxX+1
         for (x in range) {
             if (scan[GridCoord(x, coord.y)] == GroundGridElement.CLAY)
                 return
@@ -316,10 +316,10 @@ fun fillWithWater(coord: GridCoord, scan: GroundScan): GridCoord {
     return currCoord
 }
 
-fun overflowWithWater(coord: GridCoord, scan: GroundScan): List<GridCoord> {
+fun overflowWithWater(coord: GridCoord, scan: GroundScan): Set<GridCoord> {
     fun overflowLine(coord: GridCoord, dir: Int): GridCoord? {
         val range = if (dir < 0) coord.x-1 downTo scan.xOffset
-        else coord.x+1..scan.maxX
+        else coord.x+1..scan.maxX+1
         for (x in range) {
             if (scan[GridCoord(x, coord.y)] != GroundGridElement.DRY_SAND) {
                 return null
@@ -332,17 +332,17 @@ fun overflowWithWater(coord: GridCoord, scan: GroundScan): List<GridCoord> {
         println(scan)
         throw IllegalStateException("Could not overflow in line ${coord.y} dir $dir")
     }
-    if (coord.y >= scan.maxY) return emptyList() // don't overflow last scan line
-    return if (!hasBorder(coord, 1, scan) || !hasBorder(coord, -1, scan)) {
+    return if (coord.y >= scan.maxY) emptySet() // don't overflow last scan line
+    else if (!hasBorder(coord, 1, scan) || !hasBorder(coord, -1, scan)) {
         val leftNextCoord = overflowLine(coord, -1)
         val rightNextCoord = overflowLine(coord, 1)
-        listOfNotNull(leftNextCoord, rightNextCoord)
-    } else listOf(coord)
+        listOfNotNull(leftNextCoord, rightNextCoord).toSet()
+    } else setOf(coord)
 }
 
 fun hasBorder(coord: GridCoord, dir: Int, scan: GroundScan): Boolean {
     val range = if (dir < 0) coord.x downTo scan.xOffset
-    else coord.x..scan.maxX
+    else coord.x..scan.maxX+1
     for (x in range) {
         if (scan[GridCoord(x, coord.y + 1)] !in setOf(GroundGridElement.CLAY, GroundGridElement.WATER))
             return false
@@ -478,7 +478,7 @@ class Day17Spec : Spek({
                         ....#######...
 
                         """.trimIndent()
-                    result `should equal` listOf(GridCoord(502, 2))
+                    result `should equal` setOf(GridCoord(502, 2))
                 }
                 it("should simulate one step") {
                     val scan = processScanData(parseGroundScan(scanData), springCoord)
@@ -548,10 +548,62 @@ class Day17Spec : Spek({
                 }
             }
         }
+        given("case where it should flow to both sides") {
+            val scanData = """
+                    x=500, y=2
+                """.trimIndent()
+            val scan = processScanData(parseGroundScan(scanData), springCoord)
+            it("should flow to both sides") {
+                scan.toString() `should equal` """
+                    .+.
+                    ...
+                    .#.
+                    
+                """.trimIndent()
+                simulateWaterFlow(listOf(springCoord), scan)
+                scan.toString() `should equal` """
+                    .+.
+                    |||
+                    |#|
+                    
+                """.trimIndent()
+            }
+        }
+        given("case with nested buckets") {
+            val scanData = """
+                    x=497, y=2..4
+                    x=503, y=2..4
+                    x=503, y=2..4
+                    x=499, y=3
+                    x=501, y=3
+                    x=498..502, y=4
+                """.trimIndent()
+            val scan = processScanData(parseGroundScan(scanData), springCoord)
+            it("should flow to both sides") {
+                scan.toString() `should equal` """
+                    ....+....
+                    .........
+                    .#.....#.
+                    .#.#.#.#.
+                    .#######.
+                    
+                """.trimIndent()
+                simulateWaterFlow(listOf(springCoord), scan)
+                scan.toString() `should equal` """
+                    ....+....
+                    |||||||||
+                    |#~~~~~#|
+                    |#~#~#~#|
+                    |#######|
+                    
+                """.trimIndent()
+            }
+        }
         given("exercise input") {
             val input = readResource("day17Input.txt")
             val scan = processScanData(parseGroundScan(input))
             simulateWaterFlow(listOf(springCoord), scan)
+            print(scan)
             it("should have the water flown correctly") {
                 scan.countWater() `should equal` 46
             }
