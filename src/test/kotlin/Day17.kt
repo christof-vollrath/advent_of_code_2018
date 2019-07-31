@@ -190,7 +190,9 @@ How many tiles can the water reach within the range of y values in your scan?
  */
 
 data class GroundScan(val xOffset: Int = 0, val grid: Array<Array<GroundGridElement>> = emptyArray(), val maxX: Int, val maxY: Int) {
-    operator fun get(coord: GridCoord) = grid[coord.y][coord.x-xOffset]
+    operator fun get(coord: GridCoord) =
+            if (coord.y > maxY || coord.x < xOffset) GroundGridElement.DRY_SAND
+            else grid[coord.y][coord.x-xOffset]
     operator fun set(coord: GridCoord, element: GroundGridElement) {
         grid[coord.y][coord.x-xOffset] = element
     }
@@ -265,11 +267,13 @@ fun processScanData(scanDatas: List<ScanData>, sprCoord: GridCoord = springCoord
 
 fun simulateWaterFlow(coords: List<GridCoord> = listOf(springCoord), scan: GroundScan) {
     fun List<GridCoord>.filterCoordsInScan(scan: GroundScan) = filter {
-        it.y <= scan.maxX
+        it.y <= scan.maxY
     }
     var currCoords = coords
     while(currCoords.isNotEmpty()) {
         currCoords = simulateOneStep(currCoords, scan).filterCoordsInScan(scan)
+        //println(currCoords)
+        //println(scan)
     }
 }
 
@@ -277,12 +281,16 @@ fun simulateOneStep(coords: List<GridCoord>, scan: GroundScan): List<GridCoord> 
     val afterFlowDown = coords.map {
         flowDown(it, scan)
     }
+    //println("afterFlowDown $afterFlowDown")
     val afterFillWithWater = afterFlowDown.map {
         fillWithWater(it, scan)
     }
-    return afterFillWithWater.flatMap {
+    //println("afterFillWithWater $afterFillWithWater")
+    val afterOverflowWithWater = afterFillWithWater.flatMap {
         overflowWithWater(it, scan)
     }
+    //println("afterOverflowWithWater $afterOverflowWithWater")
+    return afterOverflowWithWater
 }
 
 fun flowDown(coord: GridCoord, scan: GroundScan): GridCoord {
@@ -318,19 +326,20 @@ fun fillWithWater(coord: GridCoord, scan: GroundScan): GridCoord {
 
 fun overflowWithWater(coord: GridCoord, scan: GroundScan): Set<GridCoord> {
     fun overflowLine(coord: GridCoord, dir: Int): GridCoord? {
-        val range = if (dir < 0) coord.x-1 downTo scan.xOffset
-        else coord.x+1..scan.maxX+1
+        val range = if (dir < 0) coord.x downTo scan.xOffset
+        else coord.x..scan.maxX+1
         for (x in range) {
-            if (scan[GridCoord(x, coord.y)] != GroundGridElement.DRY_SAND) {
+            if (scan[GridCoord(x, coord.y)] !in setOf(GroundGridElement.DRY_SAND, GroundGridElement.WET_SAND)) {
                 return null
             } else {
                 scan[GridCoord(x, coord.y)] = GroundGridElement.WET_SAND
                 if (scan[GridCoord(x, coord.y + 1)] == GroundGridElement.DRY_SAND)
                     return GridCoord(x, coord.y)
+                else if (scan[GridCoord(x, coord.y + 1)] == GroundGridElement.WET_SAND)
+                    return null // Already overflowed
             }
         }
-        println(scan)
-        throw IllegalStateException("Could not overflow in line ${coord.y} dir $dir")
+        throw IllegalStateException("Could not overflow from $coord dir $dir range $range")
     }
     return if (coord.y >= scan.maxY) emptySet() // don't overflow last scan line
     else if (!hasBorder(coord, 1, scan) || !hasBorder(coord, -1, scan)) {
@@ -602,10 +611,10 @@ class Day17Spec : Spek({
         given("exercise input") {
             val input = readResource("day17Input.txt")
             val scan = processScanData(parseGroundScan(input))
-            simulateWaterFlow(listOf(springCoord), scan)
-            print(scan)
             it("should have the water flown correctly") {
-                scan.countWater() `should equal` 46
+                simulateWaterFlow(listOf(springCoord), scan)
+                print(scan)
+                scan.countWater() `should equal` 46 //31649 is too high
             }
         }
     }
