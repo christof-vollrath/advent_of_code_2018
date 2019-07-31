@@ -189,16 +189,18 @@ How many tiles can the water reach within the range of y values in your scan?
 
  */
 
-data class GroundScan(val xOffset: Int = 0, val grid: Array<Array<GroundGridElement>> = emptyArray(), val maxX: Int, val maxY: Int) {
+data class GroundScan(val xOffset: Int = 0, val grid: Array<Array<GroundGridElement>> = emptyArray(), val maxX: Int, val maxY: Int, val minY: Int) {
     operator fun get(coord: GridCoord) =
             if (coord.y > maxY || coord.x < xOffset) GroundGridElement.DRY_SAND
             else grid[coord.y][coord.x-xOffset]
     operator fun set(coord: GridCoord, element: GroundGridElement) {
         grid[coord.y][coord.x-xOffset] = element
     }
-    fun countWater() = grid.map { row ->
-        row.filter { it in setOf(GroundGridElement.WET_SAND, GroundGridElement.WATER)  }
-                .count()
+    fun countWater() = grid.mapIndexed { i, row ->
+        if (i >= minY) // Don't count lines above minimum y value
+            row.filter { it in setOf(GroundGridElement.WET_SAND, GroundGridElement.WATER)  }
+                    .count()
+        else 0
     }.sum()
 
     override fun toString() =
@@ -250,10 +252,11 @@ fun processScanData(scanDatas: List<ScanData>, sprCoord: GridCoord = springCoord
     val maxX = max(maxXScanData, sprCoord.x)
     val minXScanData =  scanDatas.map { it.xRange.first }.min()!!
     val minX = min(minXScanData, sprCoord.x)
+    val minY = scanDatas.map { it.yRange.first }.min()!!
     val maxY =  scanDatas.map { it.yRange.last }.max()!!
     val xOffset = minX - 1
     val grid = Array(maxY + 1) { Array(maxX - xOffset + 2) { GroundGridElement.DRY_SAND } }
-    val result = GroundScan(xOffset, grid, maxX, maxY)
+    val result = GroundScan(xOffset, grid, maxX, maxY, minY)
     scanDatas.forEach { scanData ->
         scanData.xRange.forEach { x ->
             scanData.yRange.forEach { y ->
@@ -614,7 +617,7 @@ class Day17Spec : Spek({
             it("should have the water flown correctly") {
                 simulateWaterFlow(listOf(springCoord), scan)
                 print(scan)
-                scan.countWater() `should equal` 46 //31649 is too high
+                scan.countWater() `should equal` 31641
             }
         }
     }
