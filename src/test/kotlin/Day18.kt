@@ -259,16 +259,37 @@ class LumberArea(val grid: Array<Array<AreaType>>) {
                 }
             }
 
-    fun executeMinutes(n: Int): LumberArea = if (n == 0) this
-    else executeMinute().executeMinutes(n - 1)
+    fun executeMinutes(n: Int) = executeMinutes(n, this)
+
+    tailrec fun executeMinutes(n: Int, currentArea: LumberArea): LumberArea {
+        if (n % 1000 == 0) { println(n); println(currentArea) }
+        return if (n == 0) currentArea
+        else {
+            val nextArea = currentArea.executeMinute()
+            if (nextArea == currentArea) nextArea // Stop when nothing changes anymore
+            else executeMinutes(n - 1, currentArea.executeMinute())
+        }
+    }
 
     fun totalResources() = with(countAreaTypes()) { (this[AreaType.TREES] ?: 0) * (this[AreaType.LUMBER] ?: 0) }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+        other as LumberArea
+        if (!grid.contentDeepEquals(other.grid)) return false
+        return true
+    }
+
+    override fun hashCode(): Int {
+        return grid.contentDeepHashCode()
+    }
 
 }
 
 class Day18Spec : Spek({
 
-    describe("part 1") {
+    describe("part 1 and 2") {
         given("input lamber area") {
             val inputString = """
                     .#.#...|#.
@@ -367,9 +388,14 @@ class Day18Spec : Spek({
         given("exercise input") {
             val inputString = readResource("day18Input.txt")
             val input = parseLumberArea(inputString)
-            val result = input.executeMinutes(10)
-            println(result)
-            it("should calculate total resources") {
+            it("should calculate total resources for 10 minutes") {
+                val result = input.executeMinutes(10)
+                println(result)
+                result.totalResources() `should equal` 360720
+            }
+            it("should calculate total resources for 1000000000 minutes") {
+                val result = input.executeMinutes(1000000000)
+                println(result)
                 result.totalResources() `should equal` 360720
             }
         }
