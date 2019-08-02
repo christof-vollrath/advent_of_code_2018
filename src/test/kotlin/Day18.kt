@@ -175,6 +175,14 @@ Multiplying the number of wooded acres by the number of lumberyards gives the to
 
 What will the total resource value of the lumber collection area be after 10 minutes?
 
+--- Part Two ---
+
+This important natural resource will need to last for at least thousands of years.
+Are the Elves collecting this lumber sustainably?
+
+What will the total resource value of the lumber collection area be after 1000000000 minutes?
+
+
  */
 
 fun parseLumberArea(input: String): LumberArea {
