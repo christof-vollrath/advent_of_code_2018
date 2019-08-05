@@ -1,9 +1,6 @@
 import org.jetbrains.spek.api.Spek
-import org.jetbrains.spek.api.dsl.describe
-import org.jetbrains.spek.api.dsl.given
-import org.jetbrains.spek.api.dsl.it
 import org.amshove.kluent.`should equal`
-import org.jetbrains.spek.api.dsl.on
+import org.jetbrains.spek.api.dsl.*
 
 /*
 --- Day 18: Settlers of The North Pole ---
@@ -289,7 +286,7 @@ class LumberArea(val grid: Array<Array<AreaType>>) {
 
 class Day18Spec : Spek({
 
-    describe("part 1 and 2") {
+    describe("part 1") {
         given("input lamber area") {
             val inputString = """
                     .#.#...|#.
@@ -362,7 +359,7 @@ class Day18Spec : Spek({
                             AreaType.OPEN, AreaType.OPEN, AreaType.TREES,
                             AreaType.LUMBER, AreaType.LUMBER,
                             AreaType.OPEN, AreaType.OPEN, AreaType.OPEN
-                            )
+                    )
                 }
                 it("should count adjacent areas for an area in the middle") {
                     input.countAdjacentAreaTypes(6, 1) `should equal` mapOf(
@@ -393,7 +390,26 @@ class Day18Spec : Spek({
                 println(result)
                 result.totalResources() `should equal` 360720
             }
-            it("should calculate total resources for 1000000000 minutes") {
+        }
+    }
+    describe("part 2") {
+        describe("repeat with loop detection") {
+            given("a test data generator") {
+                fun generateTestData(i: Int) =
+                        if (i <= 3) i
+                        else (i - 4) % 4 + 4
+                it("should generate data") {
+                    (1..20).map { generateTestData(it) } `should equal` listOf(1,2,3,4,5,6,7,4,5,6,7,4,5,6,7,4,5,6,7,4) // without loop detection
+                }
+                it("should repeat skiping the loop") {
+                    repeatWithLoopDetection(20, 0) { i, _ -> generateTestData(i) } `should equal` 4
+                }
+            }
+        }
+        given("exercise input") {
+            val inputString = readResource("day18Input.txt")
+            val input = parseLumberArea(inputString)
+            xit("should calculate total resources for 1000000000 minutes") {
                 val result = input.executeMinutes(1000000000)
                 println(result)
                 result.totalResources() `should equal` 360720
@@ -401,3 +417,25 @@ class Day18Spec : Spek({
         }
     }
 })
+
+fun <T> repeatWithLoopDetection(n: Int, start: T, function: (Int, T) -> T): T {
+    var currentValue = start
+    val cache = mutableMapOf<T, Int>()
+    cache[currentValue] = 1
+    var i = 2
+    while (i <= n) {
+        currentValue = function(i, currentValue)
+        val cachedValue = cache[currentValue]
+        if (cachedValue != null) {
+            println("loop detected from $cachedValue to $i")
+            val loopSize = i - cachedValue
+            val skipTo = (n - cachedValue) / loopSize + cachedValue
+            println("skip to $skipTo")
+            i = skipTo
+        } else {
+            cache[currentValue] = i
+            i++
+        }
+    }
+    return currentValue
+}
