@@ -399,39 +399,46 @@ class Day18Spec : Spek({
                         if (i <= 3) i
                         else (i - 4) % 4 + 4
                 it("should generate data") {
-                    (1..20).map { generateTestData(it) } `should equal` listOf(1,2,3,4,5,6,7,4,5,6,7,4,5,6,7,4,5,6,7,4) // without loop detection
+                    (1..21).map { generateTestData(it) } `should equal` listOf(1,2,3,4,5,6,7,4,5,6,7,4,5,6,7,4,5,6,7,4,5) // without loop detection
                 }
                 it("should repeat skiping the loop") {
-                    repeatWithLoopDetection(20, 0) { i, _ -> generateTestData(i) } `should equal` 4
+                    repeatWithLoopDetection(21, 1) { _, i -> generateTestData(i + 1) } `should equal` 5
                 }
             }
         }
         given("exercise input") {
             val inputString = readResource("day18Input.txt")
             val input = parseLumberArea(inputString)
-            xit("should calculate total resources for 1000000000 minutes") {
-                val result = input.executeMinutes(1000000000)
+            it("should calculate total resources for 10 minutes with loop detection, even when no loops are detected") {
+                val result = repeatWithLoopDetection(11, input) { _, currentArea -> currentArea.executeMinute() }
                 println(result)
                 result.totalResources() `should equal` 360720
+            }
+            it("should calculate total resources for 1000000000 minutes") {
+                val result = repeatWithLoopDetection(1000000001, input) { _, currentArea -> currentArea.executeMinute() }
+                println(result)
+                result.totalResources() `should equal` 197276
             }
         }
     }
 })
 
-fun <T> repeatWithLoopDetection(n: Int, start: T, function: (Int, T) -> T): T {
+fun <T> repeatWithLoopDetection(n: Int, start: T, function: (Int, T) -> T): T { // n should have offset 1
     var currentValue = start
     val cache = mutableMapOf<T, Int>()
     cache[currentValue] = 1
     var i = 2
+    var loopFound = false
     while (i <= n) {
         currentValue = function(i, currentValue)
         val cachedValue = cache[currentValue]
-        if (cachedValue != null) {
+        if (!loopFound && cachedValue != null) {
             println("loop detected from $cachedValue to $i")
             val loopSize = i - cachedValue
-            val skipTo = (n - cachedValue) / loopSize + cachedValue
-            println("skip to $skipTo")
-            i = skipTo
+            val skipTo = (n - cachedValue) / loopSize * loopSize + cachedValue
+            println("skip to $skipTo with value \n$currentValue ---\n")
+            loopFound = true
+            i = skipTo + 1
         } else {
             cache[currentValue] = i
             i++
