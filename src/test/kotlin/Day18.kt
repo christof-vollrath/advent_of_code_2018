@@ -281,7 +281,29 @@ class LumberArea(val grid: Array<Array<AreaType>>) {
     override fun hashCode(): Int {
         return grid.contentDeepHashCode()
     }
+}
 
+fun <T> repeatWithLoopDetection(n: Int, start: T, function: (T) -> T): T {
+    val cache = mutableMapOf<T, Int>()
+    var currentValue = start
+    var i = 0
+    var loopFound = false
+    while (i < n) {
+        currentValue = function(currentValue)
+        val cachedValue = cache[currentValue]
+        if (!loopFound && cachedValue != null) {
+            println("loop detected from $cachedValue to $i")
+            val loopSize = i - cachedValue
+            val skipTo = (n - cachedValue) / loopSize * loopSize + cachedValue
+            println("skip to $skipTo with value \n$currentValue ---\n")
+            loopFound = true
+            i = skipTo + 1
+        } else {
+            cache[currentValue] = i
+            i++
+        }
+    }
+    return currentValue
 }
 
 class Day18Spec : Spek({
@@ -402,7 +424,7 @@ class Day18Spec : Spek({
                     (1..21).map { generateTestData(it) } `should equal` listOf(1,2,3,4,5,6,7,4,5,6,7,4,5,6,7,4,5,6,7,4,5) // without loop detection
                 }
                 it("should repeat skiping the loop") {
-                    repeatWithLoopDetection(21, 1) { _, i -> generateTestData(i + 1) } `should equal` 5
+                    repeatWithLoopDetection(20, 1) { i -> generateTestData(i + 1) } `should equal` 5
                 }
             }
         }
@@ -410,39 +432,15 @@ class Day18Spec : Spek({
             val inputString = readResource("day18Input.txt")
             val input = parseLumberArea(inputString)
             it("should calculate total resources for 10 minutes with loop detection, even when no loops are detected") {
-                val result = repeatWithLoopDetection(11, input) { _, currentArea -> currentArea.executeMinute() }
+                val result = repeatWithLoopDetection(10, input) {currentArea -> currentArea.executeMinute() }
                 println(result)
                 result.totalResources() `should equal` 360720
             }
             it("should calculate total resources for 1000000000 minutes") {
-                val result = repeatWithLoopDetection(1000000001, input) { _, currentArea -> currentArea.executeMinute() }
+                val result = repeatWithLoopDetection(1000000000, input) { currentArea -> currentArea.executeMinute() }
                 println(result)
                 result.totalResources() `should equal` 197276
             }
         }
     }
 })
-
-fun <T> repeatWithLoopDetection(n: Int, start: T, function: (Int, T) -> T): T { // n should have offset 1
-    var currentValue = start
-    val cache = mutableMapOf<T, Int>()
-    cache[currentValue] = 1
-    var i = 2
-    var loopFound = false
-    while (i <= n) {
-        currentValue = function(i, currentValue)
-        val cachedValue = cache[currentValue]
-        if (!loopFound && cachedValue != null) {
-            println("loop detected from $cachedValue to $i")
-            val loopSize = i - cachedValue
-            val skipTo = (n - cachedValue) / loopSize * loopSize + cachedValue
-            println("skip to $skipTo with value \n$currentValue ---\n")
-            loopFound = true
-            i = skipTo + 1
-        } else {
-            cache[currentValue] = i
-            i++
-        }
-    }
-    return currentValue
-}
