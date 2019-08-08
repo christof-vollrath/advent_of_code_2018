@@ -1,3 +1,9 @@
+import org.amshove.kluent.`should equal`
+import org.jetbrains.spek.api.Spek
+import org.jetbrains.spek.api.dsl.describe
+import org.jetbrains.spek.api.dsl.given
+import org.jetbrains.spek.api.dsl.it
+
 /*
 --- Day 19: Go With The Flow ---
 
@@ -67,9 +73,11 @@ The instruction pointer contains 0, and so the first instruction is executed (se
 It updates register 0 to the current instruction pointer value (0), sets register 1 to 5,
 sets the instruction pointer to the value of register 0 (which has no effect, as the instruction did not modify register 0),
 and then adds one to the instruction pointer.
+
 The instruction pointer contains 1, and so the second instruction, seti 6 0 2, is executed.
 This is very similar to the instruction before it: 6 is stored in register 2,
 and the instruction pointer is left with the value 2.
+
 The instruction pointer is 2, which points at the instruction addi 0 1 0. This is like a relative jump:
 the value of the instruction pointer, 2, is loaded into register 0.
 Then, addi finds the result of adding the value in register 0 and the value 1, storing the result, 3, back in register 0.
@@ -85,3 +93,112 @@ The instruction pointer is incremented, causing it to point outside the program,
 What value is left in register 0 when the background process halts?
 
  */
+
+data class IpBinding(val ipRegister: Int)
+
+fun parseCommandsWithDeclaration(input: String): Pair<IpBinding, List<Command>> {
+    val lines = input.split("\n")
+    val firstLine = lines[0]
+    val otherLines = lines.drop(1)
+    val ipBinding = with(firstLine) {
+        val regex = """#ip (\d+)""".toRegex()
+        val match = regex.find(this) ?: throw IllegalArgumentException("Can not parse input $firstLine in line 1")
+        if (match.groupValues.size != 2) throw IllegalArgumentException("Only ${match.groupValues.size} elements parsed $firstLine in line 1")
+        val values = match.groupValues
+        IpBinding(values[1].toInt())
+    }
+    val regex = """([a-z]+) (\d+) (\d+) (\d+)""".toRegex()
+    val commands = otherLines.mapIndexed { lineNr, line ->
+        val match = regex.find(line) ?: throw IllegalArgumentException("Can not parse input $line in line ${lineNr+2}")
+        if (match.groupValues.size != 5) throw IllegalArgumentException("Only ${match.groupValues.size} elements parsed $line in line ${lineNr+2}")
+        val values = match.groupValues
+        val commandName = values[1].mapIndexed { i, c -> if (i == 0) c.toUpperCase() else c }.joinToString("")
+        val pars = values.drop(2).map { it.toInt() }
+        val (a, b, c) = pars
+        Class.forName(commandName).getConstructor(Int::class.java, Int::class.java, Int::class.java).newInstance(a, b, c) as Command
+    }
+    return ipBinding to commands
+}
+
+fun executeCommands(ipBinding: IpBinding, commands: List<Command>): List<Int> {
+    var registers = List(6) { 0 }
+    var ip = 0
+    while(ip >= 0 && ip < commands.size) {
+        val (nextIp, nextRegisters) = executeCommand(ip, ipBinding, registers, commands)
+        ip = nextIp; registers = nextRegisters
+        //println("registers=$registers ip=$ip")
+    }
+    return registers
+}
+
+private fun executeCommand(ip: Int, ipBinding: IpBinding, registers: List<Int>, commands: List<Command>): Pair<Int, List<Int>> {
+    val inputRegisters = registers as MutableList
+    inputRegisters[ipBinding.ipRegister] = ip
+    val command = commands[ip]
+    val changedRegisters = command.execute(inputRegisters)
+    val nextIp = changedRegisters[ipBinding.ipRegister] + 1
+    return nextIp to changedRegisters
+}
+
+class Day19Spec : Spek({
+
+    describe("part 1") {
+        describe("parse commands with declaration") {
+            given("commands") {
+                val input = """
+                    #ip 0
+                    seti 5 0 1
+                    seti 6 0 2
+                """.trimIndent()
+                it("should parse correctly") {
+                    parseCommandsWithDeclaration(input) `should equal` Pair(IpBinding(0),
+                            listOf(Seti(5, 0, 1), Seti(6, 0, 2)))
+                }
+            }
+        }
+        describe("execute commands") {
+            given("given one command with declaration") {
+                val input = """
+                    #ip 0
+                    seti 5 0 1
+                """.trimIndent()
+                it("should execute command correctly") {
+                    val commandsWithDeclaration = parseCommandsWithDeclaration(input)
+                    executeCommands(commandsWithDeclaration.first, commandsWithDeclaration.second) `should equal` listOf(0, 5, 0, 0, 0, 0)
+                }
+            }
+            given("given example commands with declaration") {
+                val input = """
+                    #ip 0
+                    seti 5 0 1
+                    seti 6 0 2
+                    addi 0 1 0
+                    addr 1 2 3
+                    setr 1 0 0
+                    seti 8 0 4
+                    seti 9 0 5
+                """.trimIndent()
+                val commandsWithDeclaration = parseCommandsWithDeclaration(input)
+                val result = executeCommands(commandsWithDeclaration.first, commandsWithDeclaration.second)
+                it("should execute commands correctly") {
+                    result `should equal` listOf(6, 5, 6, 0, 0, 9)
+                }
+                it("should have the correct value in register 0") {
+                    result[0] `should equal` 6
+                }
+            }
+
+        }
+        describe("exercise") {
+            given("exercise input") {
+                val inputString = readResource("day19Input.txt")
+                val commandsWithDeclaration = parseCommandsWithDeclaration(inputString)
+                it("should execute commands correctly") {
+                    val result = executeCommands(commandsWithDeclaration.first, commandsWithDeclaration.second)
+                    result[0] `should equal` 1056
+                }
+            }
+
+        }
+    }
+})
