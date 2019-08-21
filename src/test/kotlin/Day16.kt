@@ -260,24 +260,7 @@ fun parseCodeSamples(input: String): List<CodeSample> =
                     val chunkNotNull = chunk.filterNotNull()
                     CodeSample(chunkNotNull[0], chunkNotNull[1], chunkNotNull[2])
                 }
-fun solveOpCodeMap(codeSamples: List<CodeSample>): Map<Int, KClass<out Command>> {
-    val result = mutableMapOf<Int, KClass<out Command>>()
-    val alreadySolved = mutableSetOf<KClass<out Command>>()
-    val opCodesWithPossibleCommands = codeSamples.map { it.opcode[0] to it.findCommands(allCommands) }.toMap()
-    while(true) {
-        val nextMap = solveUniqueOpCodeMap(opCodesWithPossibleCommands, alreadySolved)
-        if (nextMap.isEmpty()) return result
-        result.putAll(nextMap)
-        alreadySolved.addAll(nextMap.values)
-    }
-}
 
-fun solveUniqueOpCodeMap(opCodesWithPossibleCommands: Map<Int, List<KClass<out Command>>>, alreadySolved: Set<KClass<out Command>>): Map<Int, KClass<out Command>> =
-        opCodesWithPossibleCommands.entries
-                .filter { it.value.filter { it !in alreadySolved }.size == 1 }
-                .distinctBy { it.key }
-                .map{it.key to it.value.first { it !in alreadySolved } }
-                .toMap()
 
 fun parseCode(inputCode: String): List<List<Int>>  =
         inputCode.split("\n")
