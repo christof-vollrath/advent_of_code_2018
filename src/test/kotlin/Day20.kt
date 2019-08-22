@@ -1,5 +1,12 @@
+import org.amshove.kluent.`should equal`
+import org.jetbrains.spek.api.Spek
+import org.jetbrains.spek.api.dsl.describe
+import org.jetbrains.spek.api.dsl.given
+import org.jetbrains.spek.api.dsl.it
+
 /*
 --- Day 20: A Regular Map ---
+
 While you were learning about instruction pointers, the Elves made considerable progress.
 When you look up, you discover that the North Pole base construction project has completely surrounded you.
 
@@ -179,3 +186,76 @@ That is, find the room for which the shortest path from your starting location t
 passing through the most doors; what is the fewest doors you can pass through to reach it?
 
  */
+
+class Day20Spec : Spek({
+
+    describe("part 1") {
+        describe("parse instructions") {
+            given("instructions") {
+                it("should parse and print empty map correctly") {
+                    val input = "^$"
+                    parseMapInstructions(input).toString() `should equal`
+                        """
+                        ###
+                        #X#
+                        ###
+                        
+                        """.trimIndent()
+                }
+                it("should parse and print map correctly") {
+                    val input = "^WNE$"
+                    parseMapInstructions(input).toString() `should equal`
+                        """
+                        #####
+                        #.|.#
+                        #-###
+                        #.|X#
+                        #####
+                        
+                        """.trimIndent()
+                }
+            }
+        }
+    }
+})
+
+fun parseMapInstructions(input: String): RoomMap {
+//    return parseMapInstructions(input, Coord(0, 0), RoomMap(Coord(0, 0), Coord(0, 0), emptySet())) // Start with starting room in map
+    return RoomMap( Coord(-1, -1), Coord(0, 0), setOf(Door(Coord(-1,-1), Coord(0,-1)),
+                                                                Door(Coord(-1, 0), Coord(0, 0)),
+                                                                Door(Coord(-1, -1), Coord(-1, 0))
+                                                            ))
+
+}
+
+fun parseMapInstructions(input: String, current: Coord, currentRoomMap: RoomMap) =
+    if (input.isEmpty()) currentRoomMap
+    else {
+        val c = input.first()
+    }
+
+
+data class RoomMap(val minXY: Coord, val maxXY: Coord, val doors: Set<Door>) {
+    override fun toString(): String {
+        val lineWithNoDoors = "#".repeat((maxXY.x - minXY.x + 1) * 2 + 1)
+        return lineWithNoDoors + "\n" +
+            (minXY.y .. maxXY.y).map { y ->
+                "#" +
+                (minXY.x .. maxXY.x).map { x ->
+                            if(x == 0 && y == 0) "X" else "." +
+                                    if (x < maxXY.x)
+                                        if (doors.contains(Door(Coord(x, y), Coord(x+1, y))))
+                                            "|" else "#"
+                                    else ""
+                }.joinToString("") + "#" + "\n" +
+                "#" +
+                (minXY.x .. maxXY.x).map { x ->
+                    (if (y < maxXY.y && doors.contains(Door(Coord(x, y), Coord(x+1, y))))
+                        "-"
+                    else "#") + "#"
+                }.joinToString("")
+            }.joinToString("\n") + "\n"
+    }
+}
+
+data class Door(val from: Coord, val to: Coord)
