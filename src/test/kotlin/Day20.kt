@@ -3,6 +3,8 @@ import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
+import java.lang.Integer.max
+import java.lang.Integer.min
 
 /*
 --- Day 20: A Regular Map ---
@@ -191,19 +193,21 @@ class Day20Spec : Spek({
 
     describe("part 1") {
         describe("parse instructions") {
-            given("instructions") {
+            given("empty instructions") {
+                val input = "^$"
                 it("should parse and print empty map correctly") {
-                    val input = "^$"
                     parseMapInstructions(input).toString() `should equal`
-                        """
+                            """
                         ###
                         #X#
                         ###
                         
                         """.trimIndent()
                 }
+            }
+            given("simple example") {
+                val input = "^WNE$"
                 it("should parse and print map correctly") {
-                    val input = "^WNE$"
                     parseMapInstructions(input).toString() `should equal`
                         """
                         #####
@@ -215,27 +219,91 @@ class Day20Spec : Spek({
                         """.trimIndent()
                 }
             }
+            given("simple example without repetition in brackets") {
+                val input = "^(WNE)$"
+                it("should parse and print map correctly") {
+                    parseMapInstructions(input).toString() `should equal`
+                            """
+                        #####
+                        #.|.#
+                        #-###
+                        #.|X#
+                        #####
+                        
+                        """.trimIndent()
+                }
+            }
+            given("simple example with branches") {
+                val input = "^ENWWW(NEEE|SSE(EE|N))$"
+                parseMapInstructions(input).toString() `should equal`
+                        """
+                        #########
+                        #.|.|.|.#
+                        #-#######
+                        #.|.|.|.#
+                        #-#####-#
+                        #.#.#X|.#
+                        #-#-#####
+                        #.|.|.|.#
+                        #########
+                        
+                        """.trimIndent()
+            }
         }
     }
 })
 
-fun parseMapInstructions(input: String): RoomMap {
-//    return parseMapInstructions(input, Coord(0, 0), RoomMap(Coord(0, 0), Coord(0, 0), emptySet())) // Start with starting room in map
-    return RoomMap( Coord(-1, -1), Coord(0, 0), setOf(Door(Coord(-1,-1), Coord(0,-1)),
-                                                                Door(Coord(-1, 0), Coord(0, 0)),
-                                                                Door(Coord(-1, -1), Coord(-1, 0))
-                                                            ))
+fun parseMapInstructions(input: String): RoomMap =
+    parseMapInstructions(input, false, listOf(Coord(0, 0)), RoomMap(Coord(0, 0), Coord(0, 0), emptySet())).roomMap // Start with starting room in map
 
+data class ParseInterimResult(val currentCoords: List<Coord>, val remaining: String, val roomMap: RoomMap)
+fun parseMapInstructions(input: String, insideBrakets: Boolean, currentCoords: List<Coord>, currentRoomMap: RoomMap): ParseInterimResult {
+    fun move(coord: Coord, dx: Int, dy: Int) = Coord(coord.x + dx, coord.y + dy)
+    fun handleBrackets(parseInterimResult: ParseInterimResult, current: Coord): ParseInterimResult {
+        var remaining = parseInterimResult.remaining
+        while(true) {
+            val partResult = parseMapInstructions(remaining, true, listOf(current), parseInterimResult.roomMap)
+            remaining = partResult.remaining
+            if (remaining.first() != '|') {
+                return ParseInterimResult(currentCoords, remaining, parseInterimResult.roomMap)
+            }
+            remaining = remaining.drop(1)
+        }
+    }
+    return if (input.isEmpty()) ParseInterimResult(currentCoords, input, currentRoomMap)
+    else {
+//        currentCoords.fold(ParseInterimResult(currentCoords, input, currentRoomMap)) { (currentCoords, input, roomMap), current ->
+        currentCoords.fold(ParseInterimResult(currentCoords, input, currentRoomMap)) { (currentCoords, input, roomMap), current ->
+            val c = input.first()
+            when (c) {
+                '^' -> parseMapInstructions(input.drop(1), false, listOf(current), roomMap)
+                '$' -> ParseInterimResult(currentCoords, input, roomMap)
+                '(' -> handleBrackets(ParseInterimResult(currentCoords, input.drop(1), roomMap), current)
+                '|' -> ParseInterimResult(currentCoords, input, roomMap)
+                ')' -> if (insideBrakets) parseMapInstructions(input.drop(1), true, listOf(current), roomMap)
+                        else  throw IllegalArgumentException("Cannot handle $c without opening bracket")
+                else -> {
+                    val next = when (c) {
+                        'N' -> move(current,  0, -1)
+                        'E' -> move(current,  1,  0)
+                        'S' -> move(current,  0,  1)
+                        'W' -> move(current, -1,  0)
+                        else -> throw IllegalArgumentException("Cannot handle $c")
+                    }
+                    parseMapInstructions(input.drop(1), insideBrakets, listOf(next), roomMap.addDoor(current, next))
+                }
+            }
+        }
+    }
 }
 
-fun parseMapInstructions(input: String, current: Coord, currentRoomMap: RoomMap) =
-    if (input.isEmpty()) currentRoomMap
-    else {
-        val c = input.first()
-    }
-
-
 data class RoomMap(val minXY: Coord, val maxXY: Coord, val doors: Set<Door>) {
+    fun addDoor(from: Coord, to: Coord): RoomMap {
+        val nextMinXY = Coord(min(minXY.x, to.x), min(minXY.y, to.y))
+        val nextMaxXY = Coord(max(maxXY.x, to.x), max(maxXY.y, to.y))
+        val nextDoors = doors + Door(from, to) + Door(to, from)
+        return RoomMap(nextMinXY, nextMaxXY, nextDoors)
+    }
     override fun toString(): String {
         val lineWithNoDoors = "#".repeat((maxXY.x - minXY.x + 1) * 2 + 1)
         return lineWithNoDoors + "\n" +
