@@ -233,7 +233,18 @@ class Day20Spec : Spek({
                         ))
                 )
             }
-            // TODO empty option in branch
+            given("example with an empty branch") {
+                val input = "^W(N|)$"
+                it("should parse correctly") {
+                    parseMapInstructions(input) `should equal` listOf(
+                            MoveInstruction(listOf(Directions.WEST)),
+                            BranchInstruction(listOf(
+                                    MoveInstruction(listOf(Directions.NORTH)),
+                                    MoveInstruction(listOf())
+                            ))
+                    )
+                }
+            }
 
         }
         describe("parse and execute instructions") {
@@ -351,6 +362,7 @@ fun parseBranchInstruction(input: String, parserState: ParserState): BranchInstr
         handlechars@ while (parserState.pos < input.length) {
             val mapInstruction = parseMapInstruction(input, parserState)
             if (mapInstruction != null) yield(mapInstruction)
+            else yield(MoveInstruction(emptyList())) // Empty branch should become an empty move
             if (parserState.pos < input.length) {
                 when (input[parserState.pos]) {
                     '|' -> parserState.pos++ // skip to next
