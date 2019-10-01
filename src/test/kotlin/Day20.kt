@@ -361,6 +361,26 @@ class Day20Spec : Spek({
                             """.trimIndent()
                 }
             }
+            given("example with branches and empty branch") {
+                val input = "^ENNWSWW(NEWS|)SSSEEN(WNSE|)EE(SWEN|)NNN$"
+                it("should parse and print map correctly") {
+                    parseAndExecuteMapInstructions(input).toString() `should equal`
+                            """
+                            ###########
+                            #.|.#.|.#.#
+                            #-###-#-#-#
+                            #.|.|.#.#.#
+                            #-#####-#-#
+                            #.#.#X|.#.#
+                            #-#-#####-#
+                            #.#.|.|.|.#
+                            #-###-###-#
+                            #.|.|.#.|.#
+                            ###########
+                            
+                            """.trimIndent()
+                }
+            }
         }
     }
 })
