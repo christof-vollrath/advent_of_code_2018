@@ -1,6 +1,7 @@
 import org.amshove.kluent.`should equal`
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.*
+import java.lang.IllegalArgumentException
 import java.lang.Integer.max
 import java.lang.Integer.min
 
@@ -194,55 +195,61 @@ class Day20Spec : Spek({
             given("empty instructions") {
                 val input = "^$"
                 it("should parse correctly") {
-                    parseMapInstructions(input) `should equal` emptyList()
+                    parseMapInstructions(input) `should equal` SequenceInstruction(emptyList())
                 }
             }
             given("simple example") {
                 val input = "^WNE$"
                 it("should parse correctly") {
-                    parseMapInstructions(input) `should equal` listOf(MoveInstruction(listOf(Directions.WEST, Directions.NORTH, Directions.EAST)))
+                    parseMapInstructions(input) `should equal` SequenceInstruction(listOf(MoveInstruction(listOf(Directions.WEST, Directions.NORTH, Directions.EAST))))
                 }
             }
             given("simple example with brackets") {
                 val input = "^(WNE)$"
                 it("should parse correctly") {
-                    parseMapInstructions(input) `should equal` listOf(MoveInstruction(listOf(Directions.WEST, Directions.NORTH, Directions.EAST)))
+                    parseMapInstructions(input) `should equal` SequenceInstruction(listOf(
+                            BranchInstruction(listOf(SequenceInstruction(listOf(MoveInstruction(listOf(Directions.WEST, Directions.NORTH, Directions.EAST))))))
+                    ))
                 }
             }
             given("example with brackets with directions before and after") {
                 val input = "^W(N)E$"
                 it("should parse correctly") {
-                    parseMapInstructions(input) `should equal` listOf(
+                    parseMapInstructions(input) `should equal` SequenceInstruction(listOf(
                             MoveInstruction(listOf(Directions.WEST)),
-                            BranchInstruction(listOf(MoveInstruction(listOf(Directions.NORTH)))),
+                            BranchInstruction(listOf(SequenceInstruction(listOf(MoveInstruction(listOf(Directions.NORTH)))))),
                             MoveInstruction(listOf(Directions.EAST))
-                    )
+                    ))
                 }
             }
             given("example with branches") {
                 val input = "^ENWWW(NEEE|SSE(EE|N))$"
-                parseMapInstructions(input) `should equal` listOf(
-                        MoveInstruction(listOf(Directions.EAST, Directions.NORTH, Directions.WEST, Directions.WEST, Directions.WEST)),
-                        BranchInstruction(listOf(
-                                MoveInstruction(listOf(Directions.NORTH, Directions.EAST, Directions.EAST, Directions.EAST)),
-                                MoveInstruction(listOf(Directions.SOUTH, Directions.SOUTH, Directions.EAST)),
-                                BranchInstruction(listOf(
-                                        MoveInstruction(listOf(Directions.EAST, Directions.EAST)),
-                                        MoveInstruction(listOf(Directions.NORTH))
-                                ))
-                        ))
-                )
+                it("should parse correctly") {
+                    parseMapInstructions(input) `should equal` SequenceInstruction(listOf(
+                            MoveInstruction(listOf(Directions.EAST, Directions.NORTH, Directions.WEST, Directions.WEST, Directions.WEST)),
+                            BranchInstruction(listOf(
+                                    SequenceInstruction(listOf(MoveInstruction(listOf(Directions.NORTH, Directions.EAST, Directions.EAST, Directions.EAST)))),
+                                    SequenceInstruction(listOf(
+                                            MoveInstruction(listOf(Directions.SOUTH, Directions.SOUTH, Directions.EAST)),
+                                            BranchInstruction(listOf(
+                                                    SequenceInstruction(listOf(MoveInstruction(listOf(Directions.EAST, Directions.EAST)))),
+                                                    SequenceInstruction(listOf(MoveInstruction(listOf(Directions.NORTH))))
+                                            ))
+                                    ))
+                            ))
+                    ))
+                }
             }
             given("example with an empty branch") {
                 val input = "^W(N|)$"
                 it("should parse correctly") {
-                    parseMapInstructions(input) `should equal` listOf(
+                    parseMapInstructions(input) `should equal` SequenceInstruction(listOf(
                             MoveInstruction(listOf(Directions.WEST)),
                             BranchInstruction(listOf(
-                                    MoveInstruction(listOf(Directions.NORTH)),
-                                    MoveInstruction(listOf())
+                                    SequenceInstruction(listOf(MoveInstruction(listOf(Directions.NORTH)))),
+                                    SequenceInstruction(listOf())
                             ))
-                    )
+                    ))
                 }
             }
 
@@ -274,13 +281,11 @@ class Day20Spec : Spek({
                         """.trimIndent()
                 }
             }
-        }
-        xdescribe("parse and execute instructions") {
             given("simple example with brackets") {
                 val input = "^(WNE)$"
                 it("should parse and print map correctly") {
                     parseAndExecuteMapInstructions(input).toString() `should equal`
-                            """
+                        """
                         #####
                         #.|.#
                         #-###
@@ -290,21 +295,71 @@ class Day20Spec : Spek({
                         """.trimIndent()
                 }
             }
+            given("example with branches 1") {
+                val input = "^ENWWW$"
+                it("should parse and print map correctly") {
+                    parseAndExecuteMapInstructions(input).toString() `should equal`
+                            """
+                            #########
+                            #.|.|.|.#
+                            #######-#
+                            #.#.#X|.#
+                            #########
+                            
+                            """.trimIndent()
+                }
+            }
+            given("example with branches 2") {
+                val input = "^ENWWW(NEEE)$"
+                it("should parse and print map correctly") {
+                    parseAndExecuteMapInstructions(input).toString() `should equal`
+                            """
+                            #########
+                            #.|.|.|.#
+                            #-#######
+                            #.|.|.|.#
+                            #######-#
+                            #.#.#X|.#
+                            #########
+                            
+                            """.trimIndent()
+                }
+            }
+            given("example with branches 3") {
+                val input = "^ENWWW(NEEE|SSE(EE))$"
+                it("should parse and print map correctly") {
+                    parseAndExecuteMapInstructions(input).toString() `should equal`
+                            """
+                            #########
+                            #.|.|.|.#
+                            #-#######
+                            #.|.|.|.#
+                            #-#####-#
+                            #.#.#X|.#
+                            #-#######
+                            #.|.|.|.#
+                            #########
+                            
+                            """.trimIndent()
+                }
+            }
             given("example with branches") {
                 val input = "^ENWWW(NEEE|SSE(EE|N))$"
-                parseAndExecuteMapInstructions(input).toString() `should equal`
-                        """
-                        #########
-                        #.|.|.|.#
-                        #-#######
-                        #.|.|.|.#
-                        #-#####-#
-                        #.#.#X|.#
-                        #-#-#####
-                        #.|.|.|.#
-                        #########
-                        
-                        """.trimIndent()
+                it("should parse and print map correctly") {
+                    parseAndExecuteMapInstructions(input).toString() `should equal`
+                            """
+                            #########
+                            #.|.|.|.#
+                            #-#######
+                            #.|.|.|.#
+                            #-#####-#
+                            #.#.#X|.#
+                            #-#-#####
+                            #.|.|.|.#
+                            #########
+                            
+                            """.trimIndent()
+                }
             }
         }
     }
@@ -312,57 +367,87 @@ class Day20Spec : Spek({
 
 enum class Directions { NORTH, EAST, SOUTH, WEST }
 
-abstract sealed class MapInstruction {
-    abstract fun execute(start: Coord, roomMap: RoomMap): Coord
+sealed class MapInstruction {
+    abstract fun execute(start: List<Coord>, roomMap: RoomMap): List<Coord>
 }
 
-data class MoveInstruction(val directions: List<Directions>) : MapInstruction() {
-    override fun execute(start: Coord, roomMap: RoomMap): Coord {
-        fun move(coord: Coord, dx: Int, dy: Int) = Coord(coord.x + dx, coord.y + dy)
-        return directions.fold(start) { current, dir ->
-            val next = when (dir) {
-                Directions.NORTH -> move(current,  0, -1)
-                Directions.EAST -> move(current,  1,  0)
-                Directions.SOUTH -> move(current,  0,  1)
-                Directions.WEST -> move(current, -1,  0)
-            }
-            roomMap.addDoor(current, next)
-            next
-        }
+data class SequenceInstruction(val instructions: List<MapInstruction>) : MapInstruction() {
+    override fun  execute(start: List<Coord>, roomMap: RoomMap): List<Coord> = instructions.fold(start) { current, instruction ->
+        instruction.execute(current, roomMap)
     }
 }
 
-data class BranchInstruction(val instructions: List<MapInstruction>) : MapInstruction() {
-    override fun execute(start: Coord, roomMap: RoomMap): Coord = instructions.first().execute(start, roomMap)
+data class MoveInstruction(val directions: List<Directions>) : MapInstruction() {
+    override fun execute(start: List<Coord>, roomMap: RoomMap): List<Coord> {
+        fun move(coord: Coord, dx: Int, dy: Int) = Coord(coord.x + dx, coord.y + dy)
+        println("Move execute start=$start")
+        val result = start.map { coord: Coord ->
+            directions.fold(coord) { current, dir ->
+                val next = when (dir) {
+                    Directions.NORTH -> move(current,  0, -1)
+                    Directions.EAST -> move(current,  1,  0)
+                    Directions.SOUTH -> move(current,  0,  1)
+                    Directions.WEST -> move(current, -1,  0)
+                }
+                roomMap.addDoor(current, next)
+                next
+            }
+        }
+        println("Move execute result=$result")
+        return result
+    }
+}
+
+data class BranchInstruction(val instructions: List<SequenceInstruction>) : MapInstruction() {
+    override fun execute(start: List<Coord>, roomMap: RoomMap): List<Coord> {
+        println("Branch execute start=$start")
+        val result = instructions.flatMap { it.execute(start, roomMap) }
+        println("Branch execute result=$result")
+        return result
+    }
 }
 
 data class ParserState(var pos: Int = 0)
 
-fun parseMapInstructions(input: String, parserState: ParserState = ParserState()): List<MapInstruction> {
-    return sequence {
+fun parseMapInstructions(input: String, parserState: ParserState = ParserState()): SequenceInstruction {
+    if (input.getOrNull(parserState.pos) != '^') throw IllegalArgumentException("Expected ^ at the beginning")
+    parserState.pos++
+    val result = parseSequenceInstruction(input, parserState)
+    if (input.getOrNull(parserState.pos) != '$') throw IllegalArgumentException("Expected ^ at the end")
+    return result
+}
+
+
+fun parseSequenceInstruction(input: String, parserState: ParserState): SequenceInstruction {
+    println("parseSequenceInstruction")
+    val instructions = sequence {
         while (parserState.pos < input.length) {
             val mapInstruction = parseMapInstruction(input, parserState)
             if (mapInstruction != null) yield(mapInstruction)
-            else parserState.pos++ // Ignore unhandled input
+            else break // parserState.pos++ // Ignore unhandled input
         }
     }.toList().filterNotNull()
+    println("parseSequenceInstruction=$instructions")
+    return SequenceInstruction(instructions)
 }
 
 fun parseMapInstruction(input: String, parserState: ParserState): MapInstruction? {
-    return if (parserState.pos < input.length) {
+    println("parseMapInstruction")
+    val result = if (parserState.pos < input.length) {
         if (input[parserState.pos] == '(')  {
             parserState.pos++ // consume (
             parseBranchInstruction(input, parserState)
         } else parseMoveInstruction(input, parserState)
     } else null
+    println("parseMapInstruction=$result")
+    return result
 }
 
 fun parseBranchInstruction(input: String, parserState: ParserState): BranchInstruction {
+    println("parseBranchInstruction")
     val instructions = sequence {
         handlechars@ while (parserState.pos < input.length) {
-            val mapInstruction = parseMapInstruction(input, parserState)
-            if (mapInstruction != null) yield(mapInstruction)
-            else yield(MoveInstruction(emptyList())) // Empty branch should become an empty move
+            yield(parseSequenceInstruction(input, parserState))
             if (parserState.pos < input.length) {
                 when (input[parserState.pos]) {
                     '|' -> parserState.pos++ // skip to next
@@ -372,16 +457,16 @@ fun parseBranchInstruction(input: String, parserState: ParserState): BranchInstr
                 }
             }
         }
-    }.toList().filterNotNull()
+    }.toList()
+    println("parseBranchInstruction=$instructions")
     return BranchInstruction(instructions)
 }
 
 fun parseMoveInstruction(input: String, parserState: ParserState): MoveInstruction? {
+    println("parseMoveInstruction")
     val directions = sequence {
         handlechars@ while (parserState.pos < input.length) {
-            val c = input[parserState.pos]
-            when (c) {
-                '^', '$' -> Unit // do nothing
+            when (input[parserState.pos]) {
                 'N' -> yield(Directions.NORTH)
                 'E' -> yield(Directions.EAST)
                 'S' -> yield(Directions.SOUTH)
@@ -391,69 +476,16 @@ fun parseMoveInstruction(input: String, parserState: ParserState): MoveInstructi
             parserState.pos++
         }
     }.toList()
+    println("parseMoveInstruction=$directions")
     return if (directions.isNotEmpty()) MoveInstruction(directions)
     else null
 }
 
 fun parseAndExecuteMapInstructions(input: String): RoomMap {
-    val instructions = parseMapInstructions(input)
     val roomMap = RoomMap(emptySet())
-    instructions.fold(Coord(0, 0)) { coord, instruction -> instruction.execute(coord, roomMap) }
+    parseMapInstructions(input).execute(listOf(Coord(0, 0)), roomMap)
     return roomMap
 }
-
-/*
-
-fun parseMapInstructions(input: String): RoomMap =
-    parseMapInstructions(input, false, listOf(Coord(0, 0)), RoomMap(Coord(0, 0), Coord(0, 0), emptySet())).roomMap // Start with starting room in map
-
-data class ParseInterimResult(val currentCoords: List<Coord>, val remaining: String, val roomMap: RoomMap)
-
-fun parseMapInstructions(input: String, insideBrakets: Boolean, currentCoords: List<Coord>, currentRoomMap: RoomMap): ParseInterimResult {
-    fun move(coord: Coord, dx: Int, dy: Int) = Coord(coord.x + dx, coord.y + dy)
-
-    fun handleBrackets(parseInterimResult: ParseInterimResult, current: Coord): ParseInterimResult {
-        var remaining = parseInterimResult.remaining
-        while(true) {
-            val partResult = parseMapInstructions(remaining, true, listOf(current), parseInterimResult.roomMap)
-            remaining = partResult.remaining
-            if (remaining.first() != '|') {
-                return ParseInterimResult(currentCoords, remaining, parseInterimResult.roomMap)
-            }
-            remaining = remaining.drop(1)
-        }
-    }
-
-    return if (input.isEmpty()) ParseInterimResult(currentCoords, input, currentRoomMap)
-    else {
-        currentCoords.fold(ParseInterimResult(currentCoords, input, currentRoomMap)) { (currentCoords, input, roomMap), current ->
-            println("currentCoords=$currentCoords input=$input roomMap=$roomMap current=$current")
-            val c = input.first()
-            val r =
-            when (c) {
-                '^' -> parseMapInstructions(input.drop(1), false, listOf(current), roomMap)
-                '$' -> ParseInterimResult(currentCoords, input, roomMap)
-                '(' -> handleBrackets(ParseInterimResult(currentCoords, input.drop(1), roomMap), current)
-                '|' -> ParseInterimResult(currentCoords, input, roomMap)
-                ')' -> if (insideBrakets) parseMapInstructions(input.drop(1), true, listOf(current), roomMap)
-                        else  throw IllegalArgumentException("Cannot handle $c without opening bracket")
-                else -> {
-                    val next = when (c) {
-                        'N' -> move(current,  0, -1)
-                        'E' -> move(current,  1,  0)
-                        'S' -> move(current,  0,  1)
-                        'W' -> move(current, -1,  0)
-                        else -> throw IllegalArgumentException("Cannot handle $c")
-                    }
-                    parseMapInstructions(input.drop(1), insideBrakets, listOf(next), roomMap.addDoor(current, next))
-                }
-            }
-            println("r=$r")
-            r
-        }
-    }
-}
- */
 
 data class RoomMap(var doors: Set<Door>) {
     var minXY: Coord = Coord(0, 0)
@@ -469,15 +501,15 @@ data class RoomMap(var doors: Set<Door>) {
             (minXY.y .. maxXY.y).map { y ->
                 "#" +
                 (minXY.x .. maxXY.x).map { x ->
-                            if(x == 0 && y == 0) "X" else "." +
-                                    if (x < maxXY.x)
-                                        if (doors.contains(Door(Coord(x, y), Coord(x+1, y))))
-                                            "|" else "#"
-                                    else ""
+                    (if(x == 0 && y == 0) "X" else ".") +
+                    if (x < maxXY.x)
+                        if (doors.contains(Door(Coord(x, y), Coord(x+1, y))))
+                            "|" else "#"
+                    else ""
                 }.joinToString("") + "#" + "\n" +
                 "#" +
                 (minXY.x .. maxXY.x).map { x ->
-                    (if (y < maxXY.y && doors.contains(Door(Coord(x, y), Coord(x+1, y))))
+                    (if (y < maxXY.y && doors.contains(Door(Coord(x, y), Coord(x, y+1))))
                         "-"
                     else "#") + "#"
                 }.joinToString("")
