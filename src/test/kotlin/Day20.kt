@@ -189,10 +189,17 @@ What is the largest number of doors you would be required to pass through to rea
 That is, find the room for which the shortest path from your starting location to that room would require
 passing through the most doors; what is the fewest doors you can pass through to reach it?
 
+--- Part Two ---
+Okay, so the facility is big.
+
+How many rooms have a shortest path from your current location that pass through at least 1000 doors?
+
  */
 
-fun findFurthestRoom(input: String): Pair<Coord, Int> = calculatePathes(parseAndExecuteMapInstructions(input))
-        .map { (coord, path) ->
+fun findFurthestRoom(input: String): Pair<Coord, Int> = findFurthestRoom(calculatePathes(parseAndExecuteMapInstructions(input)))
+
+fun findFurthestRoom(pathes: List<Pair<Coord, List<Directions>>>): Pair<Coord, Int> =
+        pathes.map { (coord, path) ->
             coord to path.size
         }
         .sortedByDescending { it.second }
@@ -364,7 +371,7 @@ data class Door(val from: Coord, val to: Coord)
 
 class Day20Spec : Spek({
 
-    describe("part 1") {
+    describe("part 1 + 2") {
         describe("parse instructions") {
             given("empty instructions") {
                 val input = "^$"
@@ -575,17 +582,26 @@ class Day20Spec : Spek({
 
             }
         }
-        describe("exercise") {
+        describe("exercise 1 + 2") {
             given("exercise input") {
                 val input = readResource("day20Input.txt")
                 it("should build map correctly") {
                     println(parseAndExecuteMapInstructions(input))
                 }
-                it("should find result") {
-                    val result = findFurthestRoom(input)
-                    result `should equal` (Coord(x=42, y=34) to 3806)
+                on("find furthest room") {
+                    val roomMap = parseAndExecuteMapInstructions(input)
+                    val pathes = calculatePathes(roomMap)
+                    val result = findFurthestRoom(pathes)
+                    it("should find furthest room") {
+                        result `should equal` (Coord(x=42, y=34) to 3806)
+                    }
+                    it("should find rooms with path >= 1000 (part 2)") {
+                        val rooms1000 = pathes.filter { (coord, path) -> path.size >= 1000}
+                        rooms1000.size `should equal` 8354
+                    }
                 }
             }
         }
     }
+
 })
