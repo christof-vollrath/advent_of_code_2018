@@ -385,24 +385,39 @@ class Day20Spec : Spek({
                 }
             }
         }
-    }
-    describe("find furthest room") {
-        given("example input") {
-            val testData = arrayOf(
-                    data("^WNE$", Coord(0, -1) to 3),
-                    data("^ENWWW(NEEE|SSE(EE|N))$", Coord(1, 1) to 10),
-                    data("^ENNWSWW(NEWS|)SSSEEN(WNSE|)EE(SWEN|)NNN$", Coord(2, -2) to 18),
-                    data("^ESSWWN(E|NNENN(EESS(WNSE|)SSS|WWWSSSSE(SW|NNNE)))$", Coord(-1, -2) to 23),
-                    data("^WSSEESWWWNW(S|NENNEEEENN(ESSSSW(NWSW|SSEN)|WSWWN(E|WWS(E|SS))))$", Coord(0, 1) to 31)
-            )
+        describe("find furthest room") {
+            given("example input") {
+                val testData = arrayOf(
+                        data("^WNE$", Coord(0, -1) to 3),
+                        data("^ENWWW(NEEE|SSE(EE|N))$", Coord(1, 1) to 10),
+                        data("^ENNWSWW(NEWS|)SSSEEN(WNSE|)EE(SWEN|)NNN$", Coord(2, -2) to 18),
+                        data("^ESSWWN(E|NNENN(EESS(WNSE|)SSS|WWWSSSSE(SW|NNNE)))$", Coord(-1, -2) to 23),
+                        data("^WSSEESWWWNW(S|NENNEEEENN(ESSSSW(NWSW|SSEN)|WSWWN(E|WWS(E|SS))))$", Coord(0, 1) to 31)
+                )
 
-            onData("find furthest room for %s", with = *testData) { input, expected ->
-                val result = findFurthestRoom(input)
-                it("returns $expected") {
-                    result `should equal` expected
+                onData("find furthest room for %s", with = *testData) { input, expected ->
+                    val result = findFurthestRoom(input)
+                    it("returns $expected") {
+                        result `should equal` expected
+                    }
+                }
+
+            }
+        }
+        describe("exercise") {
+            given("exercise input") {
+                val input = readResource("day20Input.txt")
+                it("should parse input correctly") {
+                    println(parseMapInstructions(input))
+                }
+                it("should build map correctly") {
+                    println(parseAndExecuteMapInstructions(input))
+                }
+                it("should find result") {
+                    val result = findFurthestRoom(input)
+                    result `should equal` Coord(0, 0 ) to 10
                 }
             }
-
         }
     }
 })
@@ -422,7 +437,7 @@ fun calculatePathes(roomMap: RoomMap): List<Pair<Coord, List<Directions>>> {
 
 tailrec fun calculatePathes(roomMap: RoomMap, current: List<Coord>, interimResult: MutableMap<Coord, List<Directions>>) {
     val next = current.flatMap { currentCoord ->
-        val nextStep = enumValues<Directions>().mapNotNull { dir ->
+        val nextStep = enumValues<Directions>().map { dir ->
             dir to moveCoord(currentCoord, dir)
         }.filter { (_, nextCoord) ->
             roomMap.doors.contains(Door(currentCoord, nextCoord)) // There is a door
