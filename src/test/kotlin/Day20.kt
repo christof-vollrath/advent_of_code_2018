@@ -191,6 +191,177 @@ passing through the most doors; what is the fewest doors you can pass through to
 
  */
 
+fun findFurthestRoom(input: String): Pair<Coord, Int> = calculatePathes(parseAndExecuteMapInstructions(input))
+        .map { (coord, path) ->
+            coord to path.size
+        }
+        .sortedByDescending { it.second }
+        .first()
+
+fun calculatePathes(roomMap: RoomMap): List<Pair<Coord, List<Directions>>> {
+    val interimResult = mutableMapOf(Coord(0, 0) to emptyList<Directions>())
+    calculatePathes(roomMap, listOf(Coord(0, 0)), interimResult)
+    return interimResult.toList()
+}
+
+tailrec fun calculatePathes(roomMap: RoomMap, current: List<Coord>, interimResult: MutableMap<Coord, List<Directions>>) {
+    val next = current.flatMap { currentCoord ->
+        val nextStep = enumValues<Directions>().map { dir ->
+            dir to moveCoord(currentCoord, dir)
+        }.filter { (_, nextCoord) ->
+            roomMap.doors.contains(Door(currentCoord, nextCoord)) // There is a door
+        }.filter { (_, nextCoord) ->
+            ! interimResult.contains(nextCoord) // Already visited
+        }
+        val currentPath = interimResult[currentCoord] ?: throw IllegalStateException("Must have $currentCoord in interim results")
+        nextStep.forEach { (dir, nextCoord) ->
+            interimResult[nextCoord] = currentPath + dir
+        }
+        nextStep.map { (_, nextCoord) -> nextCoord }
+    }
+    if (next.isNotEmpty()) calculatePathes(roomMap, next, interimResult)
+}
+
+fun moveCoord(coord: Coord, direction: Directions): Coord {
+    fun move(coord: Coord, dx: Int, dy: Int) = Coord(coord.x + dx, coord.y + dy)
+    return when (direction) {
+        Directions.NORTH -> move(coord,  0, -1)
+        Directions.EAST -> move(coord,  1,  0)
+        Directions.SOUTH -> move(coord,  0,  1)
+        Directions.WEST -> move(coord, -1,  0)
+    }
+}
+
+enum class Directions { NORTH, EAST, SOUTH, WEST }
+
+sealed class MapInstruction {
+    abstract fun execute(start: Set<Coord>, roomMap: RoomMap): Set<Coord>
+}
+
+data class SequenceInstruction(val instructions: List<MapInstruction>) : MapInstruction() {
+    override fun  execute(start: Set<Coord>, roomMap: RoomMap): Set<Coord> = instructions.fold(start) { current, instruction ->
+        instruction.execute(current, roomMap)
+    }
+}
+
+data class MoveInstruction(val directions: List<Directions>) : MapInstruction() {
+    override fun execute(start: Set<Coord>, roomMap: RoomMap): Set<Coord> {
+        return start.map { coord: Coord ->
+            directions.fold(coord) { current, dir ->
+                val next = moveCoord(current, dir)
+                roomMap.addDoor(current, next)
+                next
+            }
+        }.toSet()
+    }
+}
+
+data class BranchInstruction(val instructions: List<SequenceInstruction>) : MapInstruction() {
+    override fun execute(start: Set<Coord>, roomMap: RoomMap): Set<Coord> = instructions.flatMap { it.execute(start, roomMap) }.toSet()
+}
+
+data class ParserState(var pos: Int = 0)
+
+fun parseMapInstructions(input: String, parserState: ParserState = ParserState()): SequenceInstruction {
+    if (input.getOrNull(parserState.pos) != '^') throw IllegalArgumentException("Expected ^ at the beginning")
+    parserState.pos++
+    val result = parseSequenceInstruction(input, parserState)
+    if (input.getOrNull(parserState.pos) != '$') throw IllegalArgumentException("Expected ^ at the end")
+    return result
+}
+
+
+fun parseSequenceInstruction(input: String, parserState: ParserState): SequenceInstruction {
+    val instructions = sequence {
+        while (parserState.pos < input.length) {
+            val mapInstruction = parseMapInstruction(input, parserState)
+            if (mapInstruction != null) yield(mapInstruction)
+            else break // parserState.pos++ // Ignore unhandled input
+        }
+    }.toList().filterNotNull()
+    return SequenceInstruction(instructions)
+}
+
+fun parseMapInstruction(input: String, parserState: ParserState): MapInstruction? =
+        if (parserState.pos < input.length) {
+            if (input[parserState.pos] == '(')  {
+                parserState.pos++ // consume (
+                parseBranchInstruction(input, parserState)
+            } else parseMoveInstruction(input, parserState)
+        } else null
+
+fun parseBranchInstruction(input: String, parserState: ParserState): BranchInstruction {
+    val instructions = sequence {
+        handlechars@ while (parserState.pos < input.length) {
+            yield(parseSequenceInstruction(input, parserState))
+            if (parserState.pos < input.length) {
+                when (input[parserState.pos]) {
+                    '|' -> parserState.pos++ // skip to next
+                    ')' -> { parserState.pos++
+                        break@handlechars // Done with this branch
+                    }
+                }
+            }
+        }
+    }.toList()
+    return BranchInstruction(instructions)
+}
+
+fun parseMoveInstruction(input: String, parserState: ParserState): MoveInstruction? {
+    val directions = sequence {
+        handlechars@ while (parserState.pos < input.length) {
+            when (input[parserState.pos]) {
+                'N' -> yield(Directions.NORTH)
+                'E' -> yield(Directions.EAST)
+                'S' -> yield(Directions.SOUTH)
+                'W' -> yield(Directions.WEST)
+                else -> break@handlechars
+            }
+            parserState.pos++
+        }
+    }.toList()
+    return if (directions.isNotEmpty()) MoveInstruction(directions)
+    else null
+}
+
+fun parseAndExecuteMapInstructions(input: String): RoomMap {
+    val roomMap = RoomMap(emptySet())
+    parseMapInstructions(input).execute(setOf(Coord(0, 0)), roomMap)
+    return roomMap
+}
+
+data class RoomMap(var doors: Set<Door>) {
+    var minXY: Coord = Coord(0, 0)
+    var maxXY: Coord = Coord(0, 0)
+    fun addDoor(from: Coord, to: Coord) {
+        minXY = Coord(min(minXY.x, to.x), min(minXY.y, to.y))
+        maxXY = Coord(max(maxXY.x, to.x), max(maxXY.y, to.y))
+        doors = doors + Door(from, to) + Door(to, from)
+    }
+    override fun toString(): String {
+        val lineWithNoDoors = "#".repeat((maxXY.x - minXY.x + 1) * 2 + 1)
+        return lineWithNoDoors + "\n" +
+                (minXY.y .. maxXY.y).map { y ->
+                    "#" +
+                            (minXY.x .. maxXY.x).map { x ->
+                                (if(x == 0 && y == 0) "X" else ".") +
+                                        if (x < maxXY.x)
+                                            if (doors.contains(Door(Coord(x, y), Coord(x+1, y))))
+                                                "|" else "#"
+                                        else ""
+                            }.joinToString("") + "#" + "\n" +
+                            "#" +
+                            (minXY.x .. maxXY.x).map { x ->
+                                (if (y < maxXY.y && doors.contains(Door(Coord(x, y), Coord(x, y+1))))
+                                    "-"
+                                else "#") + "#"
+                            }.joinToString("")
+                }.joinToString("\n") + "\n"
+    }
+}
+
+data class Door(val from: Coord, val to: Coord)
+
 class Day20Spec : Spek({
 
     describe("part 1") {
@@ -407,188 +578,14 @@ class Day20Spec : Spek({
         describe("exercise") {
             given("exercise input") {
                 val input = readResource("day20Input.txt")
-                it("should parse input correctly") {
-                    println(parseMapInstructions(input))
-                }
                 it("should build map correctly") {
                     println(parseAndExecuteMapInstructions(input))
                 }
                 it("should find result") {
                     val result = findFurthestRoom(input)
-                    result `should equal` Coord(0, 0 ) to 10
+                    result `should equal` (Coord(x=42, y=34) to 3806)
                 }
             }
         }
     }
 })
-
-fun findFurthestRoom(input: String): Pair<Coord, Int> = calculatePathes(parseAndExecuteMapInstructions(input))
-        .map { (coord, path) ->
-            coord to path.size
-        }
-        .sortedByDescending { it.second }
-        .first()
-
-fun calculatePathes(roomMap: RoomMap): List<Pair<Coord, List<Directions>>> {
-    val interimResult = mutableMapOf(Coord(0, 0) to emptyList<Directions>())
-    calculatePathes(roomMap, listOf(Coord(0, 0)), interimResult)
-    return interimResult.toList()
-}
-
-tailrec fun calculatePathes(roomMap: RoomMap, current: List<Coord>, interimResult: MutableMap<Coord, List<Directions>>) {
-    val next = current.flatMap { currentCoord ->
-        val nextStep = enumValues<Directions>().map { dir ->
-            dir to moveCoord(currentCoord, dir)
-        }.filter { (_, nextCoord) ->
-            roomMap.doors.contains(Door(currentCoord, nextCoord)) // There is a door
-        }.filter { (_, nextCoord) ->
-            ! interimResult.contains(nextCoord) // Already visited
-        }
-        val currentPath = interimResult[currentCoord] ?: throw IllegalStateException("Must have $currentCoord in interim results")
-        nextStep.forEach { (dir, nextCoord) ->
-            interimResult[nextCoord] = currentPath + dir
-        }
-        nextStep.map { (_, nextCoord) -> nextCoord }
-    }
-    if (next.isNotEmpty()) calculatePathes(roomMap, next, interimResult)
-}
-
-fun moveCoord(coord: Coord, direction: Directions): Coord {
-    fun move(coord: Coord, dx: Int, dy: Int) = Coord(coord.x + dx, coord.y + dy)
-    return when (direction) {
-                Directions.NORTH -> move(coord,  0, -1)
-                Directions.EAST -> move(coord,  1,  0)
-                Directions.SOUTH -> move(coord,  0,  1)
-                Directions.WEST -> move(coord, -1,  0)
-            }
-}
-
-enum class Directions { NORTH, EAST, SOUTH, WEST }
-
-sealed class MapInstruction {
-    abstract fun execute(start: List<Coord>, roomMap: RoomMap): List<Coord>
-}
-
-data class SequenceInstruction(val instructions: List<MapInstruction>) : MapInstruction() {
-    override fun  execute(start: List<Coord>, roomMap: RoomMap): List<Coord> = instructions.fold(start) { current, instruction ->
-        instruction.execute(current, roomMap)
-    }
-}
-
-data class MoveInstruction(val directions: List<Directions>) : MapInstruction() {
-    override fun execute(start: List<Coord>, roomMap: RoomMap): List<Coord> {
-        return start.map { coord: Coord ->
-            directions.fold(coord) { current, dir ->
-                val next = moveCoord(current, dir)
-                roomMap.addDoor(current, next)
-                next
-            }
-        }
-    }
-}
-
-data class BranchInstruction(val instructions: List<SequenceInstruction>) : MapInstruction() {
-    override fun execute(start: List<Coord>, roomMap: RoomMap): List<Coord> = instructions.flatMap { it.execute(start, roomMap) }
-}
-
-data class ParserState(var pos: Int = 0)
-
-fun parseMapInstructions(input: String, parserState: ParserState = ParserState()): SequenceInstruction {
-    if (input.getOrNull(parserState.pos) != '^') throw IllegalArgumentException("Expected ^ at the beginning")
-    parserState.pos++
-    val result = parseSequenceInstruction(input, parserState)
-    if (input.getOrNull(parserState.pos) != '$') throw IllegalArgumentException("Expected ^ at the end")
-    return result
-}
-
-
-fun parseSequenceInstruction(input: String, parserState: ParserState): SequenceInstruction {
-    val instructions = sequence {
-        while (parserState.pos < input.length) {
-            val mapInstruction = parseMapInstruction(input, parserState)
-            if (mapInstruction != null) yield(mapInstruction)
-            else break // parserState.pos++ // Ignore unhandled input
-        }
-    }.toList().filterNotNull()
-    return SequenceInstruction(instructions)
-}
-
-fun parseMapInstruction(input: String, parserState: ParserState): MapInstruction? =
-    if (parserState.pos < input.length) {
-        if (input[parserState.pos] == '(')  {
-            parserState.pos++ // consume (
-            parseBranchInstruction(input, parserState)
-        } else parseMoveInstruction(input, parserState)
-    } else null
-
-fun parseBranchInstruction(input: String, parserState: ParserState): BranchInstruction {
-    val instructions = sequence {
-        handlechars@ while (parserState.pos < input.length) {
-            yield(parseSequenceInstruction(input, parserState))
-            if (parserState.pos < input.length) {
-                when (input[parserState.pos]) {
-                    '|' -> parserState.pos++ // skip to next
-                    ')' -> { parserState.pos++
-                        break@handlechars // Done with this branch
-                    }
-                }
-            }
-        }
-    }.toList()
-    return BranchInstruction(instructions)
-}
-
-fun parseMoveInstruction(input: String, parserState: ParserState): MoveInstruction? {
-    val directions = sequence {
-        handlechars@ while (parserState.pos < input.length) {
-            when (input[parserState.pos]) {
-                'N' -> yield(Directions.NORTH)
-                'E' -> yield(Directions.EAST)
-                'S' -> yield(Directions.SOUTH)
-                'W' -> yield(Directions.WEST)
-                else -> break@handlechars
-            }
-            parserState.pos++
-        }
-    }.toList()
-    return if (directions.isNotEmpty()) MoveInstruction(directions)
-    else null
-}
-
-fun parseAndExecuteMapInstructions(input: String): RoomMap {
-    val roomMap = RoomMap(emptySet())
-    parseMapInstructions(input).execute(listOf(Coord(0, 0)), roomMap)
-    return roomMap
-}
-
-data class RoomMap(var doors: Set<Door>) {
-    var minXY: Coord = Coord(0, 0)
-    var maxXY: Coord = Coord(0, 0)
-    fun addDoor(from: Coord, to: Coord) {
-        minXY = Coord(min(minXY.x, to.x), min(minXY.y, to.y))
-        maxXY = Coord(max(maxXY.x, to.x), max(maxXY.y, to.y))
-        doors = doors + Door(from, to) + Door(to, from)
-    }
-    override fun toString(): String {
-        val lineWithNoDoors = "#".repeat((maxXY.x - minXY.x + 1) * 2 + 1)
-        return lineWithNoDoors + "\n" +
-            (minXY.y .. maxXY.y).map { y ->
-                "#" +
-                (minXY.x .. maxXY.x).map { x ->
-                    (if(x == 0 && y == 0) "X" else ".") +
-                    if (x < maxXY.x)
-                        if (doors.contains(Door(Coord(x, y), Coord(x+1, y))))
-                            "|" else "#"
-                    else ""
-                }.joinToString("") + "#" + "\n" +
-                "#" +
-                (minXY.x .. maxXY.x).map { x ->
-                    (if (y < maxXY.y && doors.contains(Door(Coord(x, y), Coord(x, y+1))))
-                        "-"
-                    else "#") + "#"
-                }.joinToString("")
-            }.joinToString("\n") + "\n"
-    }
-}
-
-data class Door(val from: Coord, val to: Coord)
