@@ -1,5 +1,7 @@
+import org.amshove.kluent.`should equal`
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
+import org.jetbrains.spek.api.dsl.it
 
 /*
 --- Day 21: Chronal Conversion ---
@@ -47,6 +49,17 @@ to halt after executing the fewest instructions?
 class Day21Spec : Spek({
 
     describe("part 1") {
+        val inputString = readResource("day21Input.txt")
+        val commandsWithDeclaration = parseCommandsWithDeclaration(inputString)
+        it("should show what's happening after line 24 and what has to be written into register 0 so that eqrr in line 28 is true") {
+            var executionCounter = 0
+            val registers = listOf(30842, 0, 0, 0, 0, 0)
+            val result = executeCommands(commandsWithDeclaration.first, commandsWithDeclaration.second, registers)  { cmd, registers, ip ->
+                if (ip > 25) println("$executionCounter cmd=$cmd registers=$registers ip=$ip")
+                executionCounter++
+                false
+            }
+        }
 
     }
 })
