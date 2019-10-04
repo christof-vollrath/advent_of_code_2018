@@ -1,4 +1,3 @@
-import org.amshove.kluent.`should equal`
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.it
@@ -44,6 +43,16 @@ while trying to emulate this system with a scripting language.)
 What is the lowest non-negative integer value for register 0 that causes the program
 to halt after executing the fewest instructions?
 (Executing the same instruction multiple times counts as multiple instructions executed.)
+
+--- Part Two ---
+
+In order to determine the timing window for your underflow exploit, you also need an upper bound:
+
+What is the lowest non-negative integer value for register 0 that causes the program
+to halt after executing the most instructions?
+(The program must actually halt; running forever does not count as halting.)
+
+
  */
 
 class Day21Spec : Spek({
@@ -60,7 +69,29 @@ class Day21Spec : Spek({
                 false
             }
         }
-
     }
+    describe("part 2") {
+        val inputString = readResource("day21Input.txt")
+        val commandsWithDeclaration = parseCommandsWithDeclaration(inputString)
+        it("should show numbers in register 2 when comparing") {
+            var executionCounter = 0
+            val registers = listOf(16777215, 0, 0, 0, 0, 0)
+            var lowestNumber = Int.MAX_VALUE
+            var instructions = 0
+            val result = executeCommands(commandsWithDeclaration.first, commandsWithDeclaration.second, registers)  { cmd, registers, ip ->
+                if (ip == 28) {
+                    val newLowestNumberFound = executionCounter > instructions || registers[2] < lowestNumber
+                    if (newLowestNumberFound) {
+                        lowestNumber = registers[2]
+                        instructions = executionCounter
+                    }
+                    println("$executionCounter cmd=$cmd registers=$registers ip=$ip ${ if(newLowestNumberFound) lowestNumber else ""}")
+                }
+                executionCounter++
+                executionCounter > 1000_000_000
+            }
+        }
+    }
+
 })
 
