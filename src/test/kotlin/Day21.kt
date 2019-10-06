@@ -63,12 +63,17 @@ class Day21Spec : Spek({
         val commandsWithDeclaration = parseCommandsWithDeclaration(inputString)
         it("should show what's happening after line 24 and what has to be written into register 0 so that eqrr in line 28 is true") {
             var executionCounter = 0
+            var result: Int? = null
             val registers = listOf(30842, 0, 0, 0, 0, 0)
-            val result = executeCommands(commandsWithDeclaration.first, commandsWithDeclaration.second, registers)  { cmd, registers, ip ->
+            executeCommands(commandsWithDeclaration.first, commandsWithDeclaration.second, registers)  { cmd, registers, ip ->
                 if (ip > 25) println("$executionCounter cmd=$cmd registers=$registers ip=$ip")
                 executionCounter++
-                false
+                if (ip == 28) {
+                    result = registers[2]
+                    true
+                } else false
             }
+            result `should equal` 30842
         }
     }
     describe("part 2") {
@@ -92,7 +97,7 @@ class Day21Spec : Spek({
                 executionCounter++
                 numberRepeated
             }
-            val result = numberExecutionsMap.entries.sortedByDescending { it.value }.first()
+            val result = numberExecutionsMap.entries.sortedByDescending { it.value }.first().key
             result `should equal` 10748062
         }
     }
