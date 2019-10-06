@@ -1,6 +1,7 @@
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.it
+import org.amshove.kluent.`should equal`
 
 /*
 --- Day 21: Chronal Conversion ---
@@ -74,22 +75,25 @@ class Day21Spec : Spek({
         val inputString = readResource("day21Input.txt")
         val commandsWithDeclaration = parseCommandsWithDeclaration(inputString)
         it("should show numbers in register 2 when comparing") {
-            var executionCounter = 0
+            var executionCounter = 0L
             val registers = listOf(16777215, 0, 0, 0, 0, 0)
-            var lowestNumber = Int.MAX_VALUE
-            var instructions = 0
-            val result = executeCommands(commandsWithDeclaration.first, commandsWithDeclaration.second, registers)  { cmd, registers, ip ->
-                if (ip == 28) {
-                    val newLowestNumberFound = executionCounter > instructions || registers[2] < lowestNumber
-                    if (newLowestNumberFound) {
-                        lowestNumber = registers[2]
-                        instructions = executionCounter
+            val numberExecutionsMap = mutableMapOf<Int, Long>()
+            executeCommands(commandsWithDeclaration.first, commandsWithDeclaration.second, registers)  { cmd, registers, ip ->
+                val numberRepeated = if (ip == 28) {
+                    val existingExecutions = numberExecutionsMap[registers[2]]
+                    if (existingExecutions != null) {
+                        println("Number ${registers[2]} repeated")
+                        true
+                    } else {
+                        numberExecutionsMap[registers[2]] = executionCounter
+                        false
                     }
-                    println("$executionCounter cmd=$cmd registers=$registers ip=$ip ${ if(newLowestNumberFound) lowestNumber else ""}")
-                }
+                } else false
                 executionCounter++
-                executionCounter > 1000_000_000
+                numberRepeated
             }
+            val result = numberExecutionsMap.entries.sortedByDescending { it.value }.first()
+            result `should equal` 10748062
         }
     }
 
