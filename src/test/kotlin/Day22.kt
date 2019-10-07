@@ -107,26 +107,35 @@ class Day22Spec : Spek({
         describe("calculate geologic index") {
             given("example input") {
                 val testData = arrayOf(
-                        data(Coord(0, 0), 0L, 510L),
-                        data(Coord(1, 0), 16807L, 17317L),
-                        data(Coord(0, 1), 48271L, 8415L),
-                        data(Coord(1, 1), 145722555L, 1805L),
-                        data(Coord(10, 10), 0L, 510L)
+                        data(Coord(0, 0), 0L, 510L, RegionType.ROCKY),
+                        data(Coord(1, 0), 16807L, 17317L, RegionType.WET),
+                        data(Coord(0, 1), 48271L, 8415L, RegionType.ROCKY),
+                        data(Coord(1, 1), 145722555L, 1805L, RegionType.NARROW),
+                        data(Coord(10, 10), 0L, 510L, RegionType.ROCKY)
                 )
-                onData("for %s it should calculate the right geologic index and erosion level", with = *testData) { input, expectedGelologicIndex, expectedErosionLevel ->
+                onData("for %s it should calculate the right geologic index and erosion level", with = *testData) { input, expectedGelologicIndex, expectedErosionLevel, expectedRegionType ->
                     val geologicIndex = geologicIndex(input, Coord(10, 10), 510)
                     it("should calculate geologic index as $expectedGelologicIndex") {
                         geologicIndex `should equal` expectedGelologicIndex
                     }
+                    val erosionLevel = erosionLevel(geologicIndex, 510)
                     it("should calculate erosion level as $expectedErosionLevel") {
-                        val erosionLevel = erosionLevel(geologicIndex, 510)
                         erosionLevel `should equal` expectedErosionLevel
+                    }
+                    it("should find region type $expectedRegionType") {
+                        RegionType.find(erosionLevel) `should equal` expectedRegionType
                     }
                 }
             }
         }
     }
 })
+
+enum class RegionType(val nr: Int) { ROCKY(0), WET(1), NARROW(2);
+    companion object {
+        fun find(n: Long) = enumValues<RegionType>().first { it.nr == (n % 3).toInt() }
+    }
+}
 
 fun geologicIndex(coord: Coord, target: Coord, depth: Int): Long = when {
     coord == Coord(0, 0) || coord == target -> 0L
