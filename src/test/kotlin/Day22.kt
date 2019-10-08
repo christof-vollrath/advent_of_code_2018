@@ -104,7 +104,7 @@ target: 8,713
 class Day22Spec : Spek({
 
     describe("part 1") {
-        describe("calculate geologic index") {
+        describe("calculate geologic index, erosion level and find region type") {
             given("example input") {
                 val testData = arrayOf(
                         data(Coord(0, 0), 0L, 510L, RegionType.ROCKY),
@@ -128,8 +128,33 @@ class Day22Spec : Spek({
                 }
             }
         }
+        describe("risk level") {
+            describe("example") {
+                it ("should calculate the risk level") {
+                    val riskLevel = riskLevel(Coord(10, 10), 510)
+                    riskLevel `should equal` 114
+                }
+            }
+            describe("exercise") {
+                it ("should calculate the risk level") {
+                    val riskLevel = riskLevel(Coord(8, 713), 3879)
+                    riskLevel `should equal` 6323
+                }
+            }
+
+        }
     }
 })
+
+fun riskLevel(target: Coord, depth: Int) =
+        (0..target.x).map { x ->
+            (0..target.y).map { y ->
+                println("x=$x y=$y")
+                val erosionLevel = erosionLevel(geologicIndex(Coord(x, y), target, depth), depth)
+                val regionType = RegionType.find(erosionLevel)
+                regionType.nr
+            }.sum()
+        }.sum()
 
 enum class RegionType(val nr: Int) { ROCKY(0), WET(1), NARROW(2);
     companion object {
@@ -137,12 +162,35 @@ enum class RegionType(val nr: Int) { ROCKY(0), WET(1), NARROW(2);
     }
 }
 
-fun geologicIndex(coord: Coord, target: Coord, depth: Int): Long = when {
-    coord == Coord(0, 0) || coord == target -> 0L
-    coord.y == 0 -> coord.x * 16807L
-    coord.x == 0 -> coord.y * 48271L
-    else -> erosionLevel(geologicIndex(Coord(coord.x-1, coord.y), target, depth), depth) *
-            erosionLevel(geologicIndex(Coord(coord.x, coord.y-1), target, depth), depth)
+data class GeologicIndexParams(val coord: Coord, val target: Coord, val depth: Int)
+
+val memoizedGelogicIndex = { params: GeologicIndexParams -> geologicIndex(params) }.memoize()
+
+fun geologicIndex(coord: Coord, target: Coord, depth: Int) = memoizedGelogicIndex(GeologicIndexParams(coord, target, depth))
+
+fun geologicIndex(params: GeologicIndexParams): Long {
+    println(params)
+    val (coord, target, depth) = params
+    return when {
+        coord == Coord(0, 0) || coord == target -> 0L
+        coord.y == 0 -> coord.x * 16807L
+        coord.x == 0 -> coord.y * 48271L
+        else -> erosionLevel(geologicIndex(Coord(coord.x-1, coord.y), target, depth), depth) *
+                erosionLevel(geologicIndex(Coord(coord.x, coord.y-1), target, depth), depth)
+    }
+}
+
+fun ((GeologicIndexParams) -> Long).memoize(): (GeologicIndexParams) -> Long {
+    val mem = mutableMapOf<GeologicIndexParams, Long>()
+    return { param ->
+        val cached = mem[param]
+        if (cached != null) cached
+        else {
+            val result = this(param)
+            mem.putIfAbsent(param, result)
+            result
+        }
+    }
 }
 
 fun erosionLevel(geologicIndex: Long, depth: Int) = (geologicIndex + depth) % 20183
