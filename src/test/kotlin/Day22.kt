@@ -64,7 +64,7 @@ so the geologic index is the erosion level of 0,1 (8415) times the erosion level
 At 10,10, because they are the target's coordinates, the geologic index is 0.
 The erosion level is (0 + 510) % 20183 = 510. The type is 510 % 3 = 0, rocky.
 
-Drawing this same cave system with rocky as ., wet as =, narrow as |,
+Drawing this same cave system with rocky as ., wet as =, narrow as |,|
 the mouth as M, the target as T, with 0,0 in the top-left corner,
 X increasing to the right, and Y increasing downward, the top-left corner of the map looks like this:
 
@@ -405,24 +405,31 @@ What is the fewest number of minutes you can take to reach the target?
 fun riskLevel(target: Coord, depth: Int) =
         (0..target.x).map { x ->
             (0..target.y).map { y ->
-                val erosionLevel = erosionLevel(geologicIndex(Coord(x, y), target, depth), depth)
-                val regionType = RegionType.find(erosionLevel)
+                val regionType = regionType(x, y, target, depth)
                 regionType.nr
             }.sum()
         }.sum()
 
-enum class RegionType(val nr: Int) { ROCKY(0), WET(1), NARROW(2);
+fun regionType(coord: Coord, target: Coord, depth: Int): RegionType = regionType(coord.x, coord.y, target, depth)
+
+fun regionType(x: Int, y: Int, target: Coord, depth: Int): RegionType {
+    val erosionLevel = erosionLevel(geologicIndex(Coord(x, y), target, depth), depth)
+    return RegionType.find(erosionLevel)
+}
+
+enum class RegionType(val nr: Int, val string: String) { ROCKY(0, "."), WET(1, "="), NARROW(2, "/");
     companion object {
         fun find(n: Long) = enumValues<RegionType>().first { it.nr == (n % 3).toInt() }
     }
+    override fun toString() = string
 }
 
 data class GeologicIndexParams(val coord: Coord, val target: Coord, val depth: Int)
 
 val toMemoize: (GeologicIndexParams) -> Long = ::geologicIndex // Workaround to make function reference unique despite of overloading
-val memoizedGelogicIndex = toMemoize.memoize()
+val memoizedGeologicIndex = toMemoize.memoize()
 
-fun geologicIndex(coord: Coord, target: Coord, depth: Int) = memoizedGelogicIndex(GeologicIndexParams(coord, target, depth))
+fun geologicIndex(coord: Coord, target: Coord, depth: Int) = memoizedGeologicIndex(GeologicIndexParams(coord, target, depth))
 
 fun geologicIndex(params: GeologicIndexParams): Long {
     val (coord, target, depth) = params
@@ -434,6 +441,8 @@ fun geologicIndex(params: GeologicIndexParams): Long {
                 erosionLevel(geologicIndex(Coord(coord.x, coord.y-1), target, depth), depth)
     }
 }
+
+fun erosionLevel(geologicIndex: Long, depth: Int) = (geologicIndex + depth) % 20183
 
 fun <T, R> ((T) -> R).memoize(): (T) -> R {
     val cache = ConcurrentHashMap<T, R>()
@@ -447,8 +456,6 @@ fun <T, R> ((T) -> R).memoize(): (T) -> R {
         }
     }
 }
-
-fun erosionLevel(geologicIndex: Long, depth: Int) = (geologicIndex + depth) % 20183
 
 class Day22Spec : Spek({
 
@@ -479,13 +486,13 @@ class Day22Spec : Spek({
         }
         describe("risk level") {
             describe("example") {
-                it ("should calculate the risk level") {
+                it("should calculate the risk level") {
                     val riskLevel = riskLevel(Coord(10, 10), 510)
                     riskLevel `should equal` 114
                 }
             }
             describe("exercise") {
-                it ("should calculate the risk level") {
+                it("should calculate the risk level") {
                     val riskLevel = riskLevel(Coord(8, 713), 3879)
                     riskLevel `should equal` 6323
                 }
@@ -493,4 +500,51 @@ class Day22Spec : Spek({
 
         }
     }
+    describe("part 2") {
+        it("should print cave") {
+            Cave(Coord(10, 10), 510).toString(15, 15) `should equal` """
+                M=./=././=./=/=.
+                ./=/=///../.=...
+                .==/....//=../==
+                =./..../.==./==.
+                =/..==...=./==..
+                =//.=.=//=/=../=
+                /.=.===///..=../
+                /..==//=./==/===
+                .=..===..=/.///.
+                .======///=/=./=
+                .===/=/===T===//
+                =///.../==../=./
+                =.=/=.=..=.//==/
+                //=/=.../==.=/==
+                /=.=//===.///===
+                //./==./././/=//
+                
+            """.trimIndent()
+        }
+        it("should print very small cave") {
+            Cave(Coord(1, 1), 510).toString() `should equal` """
+                M=.
+                .T=
+                .=/
+                
+            """.trimIndent()
+        }
+    }
+
 })
+
+data class Cave(val target: Coord, val depth: Int) {
+    fun regionType(coord: Coord) = regionType(coord.x, coord.y, target, depth)
+    fun regionType(x: Int, y: Int) = regionType(x, y, target, depth)
+    override fun toString() = toString(target.x * 2, target.y * 2)
+    fun toString(maxX: Int, maxY: Int) = (0 .. maxY).map { y ->
+        (0 .. maxY).map { x ->
+            when {
+                x == 0 && y == 0 -> "M"
+                x == target.x && y == target.y -> "T"
+                else -> regionType(x, y).toString()
+            }
+        }.joinToString("") + "\n"
+    }.joinToString("")
+}
