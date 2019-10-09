@@ -419,7 +419,8 @@ enum class RegionType(val nr: Int) { ROCKY(0), WET(1), NARROW(2);
 
 data class GeologicIndexParams(val coord: Coord, val target: Coord, val depth: Int)
 
-val memoizedGelogicIndex = { params: GeologicIndexParams -> geologicIndex(params) }.memoize()
+val toMemoize: (GeologicIndexParams) -> Long = ::geologicIndex // Workaround to make function reference unique despite of overloading
+val memoizedGelogicIndex = toMemoize.memoize()
 
 fun geologicIndex(coord: Coord, target: Coord, depth: Int) = memoizedGelogicIndex(GeologicIndexParams(coord, target, depth))
 
