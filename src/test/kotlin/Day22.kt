@@ -4,6 +4,7 @@ import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
 import org.jetbrains.spek.data_driven.data
+import java.util.concurrent.ConcurrentHashMap
 import org.jetbrains.spek.data_driven.on as onData
 
 /*
@@ -434,7 +435,7 @@ fun geologicIndex(params: GeologicIndexParams): Long {
 }
 
 fun <T, R> ((T) -> R).memoize(): (T) -> R {
-    val cache = mutableMapOf<T, R>()
+    val cache = ConcurrentHashMap<T, R>()
     return { param ->
         val cached = cache[param]
         if (cached != null) cached
