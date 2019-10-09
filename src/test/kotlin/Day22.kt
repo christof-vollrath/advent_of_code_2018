@@ -457,6 +457,8 @@ fun <T, R> ((T) -> R).memoize(): (T) -> R {
     }
 }
 
+enum class CaveTools { TORCH, CLIMBING_GEAR, NONE }
+
 class Day22Spec : Spek({
 
     describe("part 1") {
@@ -522,17 +524,32 @@ class Day22Spec : Spek({
                 
             """.trimIndent()
         }
-        it("should print very small cave") {
-            Cave(Coord(1, 1), 510).toString() `should equal` """
-                M=.
-                .T=
-                .=/
-                
-            """.trimIndent()
+        given("a very simple cave") {
+            val cave = Cave(Coord(1, 1), 510)
+            it ("should print the cave") {
+                cave.toString() `should equal` """
+                    M=.
+                    .T=
+                    .=/
+
+                """.trimIndent()
+            }
+            it("should find a very simple path") {
+                cave.findPath() `should equal` CavePath(2,
+                        listOf(Coord(0, 0) to CaveTools.TORCH,
+                            Coord(1, 0) to CaveTools.TORCH, //TODO Handle tools and region type
+                            Coord(1, 1) to CaveTools.TORCH)
+                        )
+            }
+
         }
     }
 
 })
+
+data class CavePath(val time: Int, val path: List<Pair<Coord, CaveTools>>) {
+    fun add(coordWithTool: Pair<Coord, CaveTools>) = CavePath(time + 1, path + coordWithTool)
+}
 
 data class Cave(val target: Coord, val depth: Int) {
     fun regionType(coord: Coord) = regionType(coord.x, coord.y, target, depth)
@@ -547,4 +564,35 @@ data class Cave(val target: Coord, val depth: Int) {
             }
         } + "\n"
     }
+
+    fun findPath(): CavePath {
+        val start = Coord(0, 0) to CaveTools.TORCH
+        val startPath = mutableMapOf(start to CavePath(0, listOf(start)))
+        return findPath(listOf(start), startPath)
+    }
+    tailrec fun findPath(current: List<Pair<Coord, CaveTools>>, alreadyFound: MutableMap<Pair<Coord, CaveTools>, CavePath>): CavePath {
+        val next = current.flatMap { coordWithTool ->
+            val nextCoords = coordWithTool.first.caveNeighbours()
+            val nextCoordsWithTool = nextCoords.map { it to CaveTools.TORCH }
+            nextCoordsWithTool.mapNotNull { nextCoordWithTool ->
+                if (! alreadyFound.contains(nextCoordWithTool) ) {
+                    val pathToCurrentCoord = alreadyFound[coordWithTool]!!
+                    if (coordWithTool.first == target) return pathToCurrentCoord
+                    alreadyFound.put(nextCoordWithTool, pathToCurrentCoord.add(nextCoordWithTool))
+                    nextCoordWithTool
+                } else null
+            }
+        }
+        return findPath(next, alreadyFound)
+    }
 }
+
+fun Coord.caveNeighbours(): List<Coord> =
+        (-1..1).mapNotNull { deltaX ->
+            val result = Coord(x+deltaX, y)
+            if (result.x < 0) null else result
+        } +
+        (-1..1).mapNotNull { deltaY ->
+            val result = Coord(x, y+deltaY)
+            if (result.y < 0) null else result
+        }
