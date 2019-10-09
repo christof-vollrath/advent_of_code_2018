@@ -538,13 +538,13 @@ data class Cave(val target: Coord, val depth: Int) {
     fun regionType(coord: Coord) = regionType(coord.x, coord.y, target, depth)
     fun regionType(x: Int, y: Int) = regionType(x, y, target, depth)
     override fun toString() = toString(target.x * 2, target.y * 2)
-    fun toString(maxX: Int, maxY: Int) = (0 .. maxY).map { y ->
-        (0 .. maxY).map { x ->
+    fun toString(maxX: Int, maxY: Int) = (0..maxY).joinToString("") { y ->
+        (0..maxY).joinToString("") { x ->
             when {
                 x == 0 && y == 0 -> "M"
                 x == target.x && y == target.y -> "T"
                 else -> regionType(x, y).toString()
             }
-        }.joinToString("") + "\n"
-    }.joinToString("")
+        } + "\n"
+    }
 }
