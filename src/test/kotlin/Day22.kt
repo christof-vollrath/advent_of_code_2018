@@ -564,16 +564,29 @@ class Day22Spec : Spek({
                             Coord(1, 1) to CaveTools.TORCH)
                         )
             }
-            // TODO Calculator time when changing gear
-            // TODO Ignore new pathes only when they have no shorter time
 
         }
+        given("example cave") {
+            val cave = Cave(Coord(10, 10), 510)
+            println(cave)
+            it("should find path") {
+                val result = cave.findPath()!!
+                println(result)
+                result.time `should equal` 45
+            }
+            // TODO Calculator time when changing gear
+            // TODO Ignore new pathes only when they have no shorter time
+            // TODO Separate walk time and change gear time
+        }
     }
-
 })
 
 data class CavePath(val time: Int, val path: List<Pair<Coord, CaveTools>>) {
-    fun add(coordWithTool: Pair<Coord, CaveTools>) = CavePath(time + 1, path + coordWithTool)
+    fun add(coordWithTool: Pair<Coord, CaveTools>): CavePath {
+        val nextTime = if(path.last().first != coordWithTool.first) time + 1
+        else time + 7
+        return CavePath(nextTime, path + coordWithTool)
+    }
 }
 
 data class Cave(val target: Coord, val depth: Int) {
@@ -603,7 +616,9 @@ data class Cave(val target: Coord, val depth: Int) {
                 if (! alreadyFound.contains(nextCoordWithTool) ) {
                     val pathToCurrentCoord = alreadyFound[coordWithTool]!!
                     val nextPath = pathToCurrentCoord.add(nextCoordWithTool)
-                    alreadyFound.put(nextCoordWithTool, nextPath)
+                    val existingPath = alreadyFound[nextCoordWithTool]
+                    if (existingPath == null || existingPath.time > nextPath.time)
+                        alreadyFound[nextCoordWithTool] = nextPath
                     nextCoordWithTool
                 } else null
             }
@@ -616,6 +631,8 @@ data class Cave(val target: Coord, val depth: Int) {
     }
 
     fun findNextCoordsWithTool(currentCoordWithTool: Pair<Coord, CaveTools>): Set<Pair<Coord, CaveTools>> {
+        val trace = (currentCoordWithTool == Coord(4, 1) to CaveTools.CLIMBING_GEAR)
+        if(trace)println("findNextCoordsWithTool $currentCoordWithTool")
         val currentCoord = currentCoordWithTool.first
         val currentTool = currentCoordWithTool.second
         val currentRegionType = regionType(currentCoord)
@@ -627,7 +644,9 @@ data class Cave(val target: Coord, val depth: Int) {
             if (neighborRegionType.allowedTools.contains(currentTool)) neighborCoord to currentTool
             else null
         }
-        return (currentCoordWithOtherTools + neighborsWithSameTool).toSet()
+        val result = (currentCoordWithOtherTools + neighborsWithSameTool).toSet()
+        if(trace)println("findNextCoordsWithTool $result")
+        return result
     }
 }
 
