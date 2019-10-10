@@ -566,7 +566,6 @@ class Day22Spec : Spek({
             }
             // TODO Calculator time when changing gear
             // TODO Ignore new pathes only when they have no shorter time
-            // TODO Limit search maybe by range
 
         }
     }
@@ -591,12 +590,12 @@ data class Cave(val target: Coord, val depth: Int) {
         } + "\n"
     }
 
-    fun findPath(): CavePath {
+    fun findPath(): CavePath? {
         val start = Coord(0, 0) to CaveTools.TORCH
         val startPath = mutableMapOf(start to CavePath(0, listOf(start)))
-        return findPath(listOf(start), startPath)
+        return findPath(setOf(start), startPath)
     }
-    tailrec fun findPath(current: List<Pair<Coord, CaveTools>>, alreadyFound: MutableMap<Pair<Coord, CaveTools>, CavePath>): CavePath {
+    tailrec fun findPath(current: Set<Pair<Coord, CaveTools>>, alreadyFound: MutableMap<Pair<Coord, CaveTools>, CavePath>): CavePath? {
         println(current)
         val next = current.flatMap { coordWithTool ->
             val nextCoordsWithTool = findNextCoordsWithTool(coordWithTool)
@@ -604,13 +603,16 @@ data class Cave(val target: Coord, val depth: Int) {
                 if (! alreadyFound.contains(nextCoordWithTool) ) {
                     val pathToCurrentCoord = alreadyFound[coordWithTool]!!
                     val nextPath = pathToCurrentCoord.add(nextCoordWithTool)
-                    if (nextCoordWithTool == target to CaveTools.TORCH) return nextPath
                     alreadyFound.put(nextCoordWithTool, nextPath)
                     nextCoordWithTool
                 } else null
             }
         }
-        return findPath(next, alreadyFound)
+        val filteredNext = next.filter { (coord, _) ->
+            coord.x <= target.x + 7 && coord.y <= target.y + 7 // if detour is too long, it would be better to change gear
+        }.toSet()
+        return if (filteredNext.isEmpty()) alreadyFound[target to CaveTools.TORCH]
+        else return findPath(filteredNext, alreadyFound)
     }
 
     fun findNextCoordsWithTool(currentCoordWithTool: Pair<Coord, CaveTools>): Set<Pair<Coord, CaveTools>> {
