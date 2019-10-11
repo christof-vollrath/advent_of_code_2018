@@ -626,8 +626,8 @@ data class Cave(val target: Coord, val depth: Int) {
             }
         }
         val filteredNext = next.filter { (coord, _) ->
-//            coord.x <= target.x + 7 && coord.y <= target.y + 7 // if detour is too long, it would be better to change gear
             coord.x <= target.x + 100 && coord.y <= target.y + 100 // if detour is too long, it would be better to change gear TODO
+            // TODO better limit, when no path is shorter than the best path to target
         }.toSet()
         return if (filteredNext.isEmpty()) alreadyFound[target to CaveTools.TORCH]
         else return findPath(filteredNext, alreadyFound)
