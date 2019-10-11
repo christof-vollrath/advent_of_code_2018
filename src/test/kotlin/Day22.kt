@@ -503,7 +503,6 @@ class Day22Spec : Spek({
                     riskLevel `should equal` 6323
                 }
             }
-
         }
     }
     describe("part 2") {
@@ -571,10 +570,18 @@ class Day22Spec : Spek({
             println(cave)
             it("should find path") {
                 val result = cave.findPath()!!
-                println(result)
                 result.time `should equal` 45
             }
         }
+        given("exercise") {
+            val cave = Cave(Coord(8, 713), 3879)
+            it("should find path") {
+                val result = cave.findPath()!!
+                println(cave)
+                result.time `should equal` 982
+            }
+        }
+
     }
 })
 
@@ -619,7 +626,8 @@ data class Cave(val target: Coord, val depth: Int) {
             }
         }
         val filteredNext = next.filter { (coord, _) ->
-            coord.x <= target.x + 7 && coord.y <= target.y + 7 // if detour is too long, it would be better to change gear
+//            coord.x <= target.x + 7 && coord.y <= target.y + 7 // if detour is too long, it would be better to change gear
+            coord.x <= target.x + 100 && coord.y <= target.y + 100 // if detour is too long, it would be better to change gear TODO
         }.toSet()
         return if (filteredNext.isEmpty()) alreadyFound[target to CaveTools.TORCH]
         else return findPath(filteredNext, alreadyFound)
