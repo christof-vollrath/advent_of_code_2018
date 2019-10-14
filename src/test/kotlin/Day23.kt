@@ -1,3 +1,9 @@
+import net.bytebuddy.description.type.TypeDefinition.Sort.describe
+import org.amshove.kluent.`should equal`
+import org.jetbrains.spek.api.Spek
+import org.jetbrains.spek.api.dsl.describe
+import org.jetbrains.spek.api.dsl.it
+
 /*
 --- Day 23: Experimental Emergency Teleportation ---
 
@@ -53,3 +59,41 @@ In this example, in total, 7 nanobots are in range of the nanobot with the large
 
 Find the nanobot with the largest signal radius. How many nanobots are in range of its signals?
  */
+
+class Day23Spec : Spek({
+
+    describe("part 1") {
+        describe("parse nanobots") {
+            val input = """
+                pos=<0,0,0>, r=4
+                pos=<1,0,0>, r=1
+                pos=<4,0,0>, r=3
+            """.trimIndent()
+            it("should parse correctly") {
+                val nanobots = parseNanobots(input)
+                nanobots `should equal` listOf(
+                        Nanobot(Coord3(0, 0, 0), 4),
+                        Nanobot(Coord3(1, 0, 0), 1),
+                        Nanobot(Coord3(4, 0, 0), 3)
+                )
+            }
+        }
+    }
+})
+
+fun parseNanobots(input: String) = input.split("\n").map { parseNanobot(it) }
+
+fun parseNanobot(input: String): Nanobot {
+    val regex = """pos=<(-?\d+),(-?\d+),(-?\d+)>,\s*r=(-?\d+)""".toRegex()
+    val match = regex.find(input) ?: throw IllegalArgumentException("Can not parse input $input")
+    if (match.groupValues.size != 5) throw IllegalArgumentException("Only ${match.groupValues.size} elements parsed $input")
+    val values = match.groupValues
+    val coord = Coord3(values[1].toInt(), values[2].toInt(), values[3].toInt())
+    return Nanobot(coord, values[4].toInt())
+}
+
+
+
+data class Nanobot(val coord: Coord3, val range: Int)
+
+data class Coord3(val x: Int, val y: Int, val z: Int)
