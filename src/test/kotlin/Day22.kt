@@ -410,8 +410,6 @@ fun riskLevel(target: Coord, depth: Int) =
             }.sum()
         }.sum()
 
-fun regionType(coord: Coord, target: Coord, depth: Int): RegionType = regionType(coord.x, coord.y, target, depth)
-
 fun regionType(x: Int, y: Int, target: Coord, depth: Int): RegionType {
     val erosionLevel = erosionLevel(geologicIndex(Coord(x, y), target, depth), depth)
     return RegionType.find(erosionLevel)
@@ -462,6 +460,80 @@ fun <T, R> ((T) -> R).memoize(): (T) -> R {
 }
 
 enum class CaveTools { TORCH, CLIMBING_GEAR, NONE }
+
+data class CavePath(val time: Int, val path: List<Pair<Coord, CaveTools>>) {
+    fun add(coordWithTool: Pair<Coord, CaveTools>): CavePath {
+        val nextTime = if(path.last().first != coordWithTool.first) time + 1
+        else time + 7
+        return CavePath(nextTime, path + coordWithTool)
+    }
+}
+
+data class Cave(val target: Coord, val depth: Int) {
+    fun regionType(coord: Coord) = regionType(coord.x, coord.y, target, depth)
+    fun regionType(x: Int, y: Int) = regionType(x, y, target, depth)
+    override fun toString() = toString(target.x * 2, target.y * 2)
+    fun toString(maxX: Int, maxY: Int) = (0..maxY).joinToString("") { y ->
+        (0..maxY).joinToString("") { x ->
+            when {
+                x == 0 && y == 0 -> "M"
+                x == target.x && y == target.y -> "T"
+                else -> regionType(x, y).toString()
+            }
+        } + "\n"
+    }
+
+    fun findPath(): CavePath? {
+        val start = Coord(0, 0) to CaveTools.TORCH
+        val alreadyFound = mutableMapOf(start to CavePath(0, listOf(start)))
+        var current = setOf(start)
+        var targetPath: CavePath? = null
+
+        while(true) {
+            val next = current.flatMap { coordWithTool ->
+                val nextCoordsWithTool = findNextCoordsWithTool(coordWithTool)
+                nextCoordsWithTool.mapNotNull { nextCoordWithTool ->
+                    val pathToCurrentCoord = alreadyFound[coordWithTool]!!
+                    val nextPath = pathToCurrentCoord.add(nextCoordWithTool)
+                    val existingPath = alreadyFound[nextCoordWithTool]
+                    if (existingPath == null  || existingPath.time > nextPath.time) {
+                        val bestTargetPath = targetPath
+                        if (bestTargetPath != null && nextPath.time > bestTargetPath.time) null // Ignore paths which take longer than the current best to target
+                        else {
+                            alreadyFound[nextCoordWithTool] = nextPath
+                            if (nextCoordWithTool == (target to CaveTools.TORCH)) {
+                                if (bestTargetPath == null || nextPath.time < bestTargetPath.time) targetPath = nextPath
+                            }
+                            nextCoordWithTool
+                        }
+                    } else null
+                }
+            }.toSet()
+            if (next.isEmpty()) return alreadyFound[target to CaveTools.TORCH]
+            current = next
+        }
+    }
+
+    fun findNextCoordsWithTool(currentCoordWithTool: Pair<Coord, CaveTools>): Set<Pair<Coord, CaveTools>> {
+        val currentCoord = currentCoordWithTool.first
+        val currentTool = currentCoordWithTool.second
+        val currentRegionType = regionType(currentCoord)
+        val otherToolsForCurrentCoord = currentRegionType.allowedTools.filter { it != currentTool }
+        val currentCoordWithOtherTools = otherToolsForCurrentCoord.map { currentCoordWithTool.first to it }
+        val neighbors = currentCoord.caveNeighbours()
+        val neighborsWithSameTool = neighbors.mapNotNull { neighborCoord ->
+            val neighborRegionType = regionType(neighborCoord)
+            if (neighborRegionType.allowedTools.contains(currentTool)) neighborCoord to currentTool
+            else null
+        }
+        return (currentCoordWithOtherTools + neighborsWithSameTool).toSet()
+    }
+}
+
+fun Coord.caveNeighbours(): Set<Coord> =
+        listOf(Coord(x, y-1), Coord(x+1, y), Coord(x, y+1), Coord(x-1, y))
+                .filter { it.x >= 0 && it.y >= 0 }.toSet()
+
 
 class Day22Spec : Spek({
 
@@ -584,72 +656,3 @@ class Day22Spec : Spek({
 
     }
 })
-
-data class CavePath(val time: Int, val path: List<Pair<Coord, CaveTools>>) {
-    fun add(coordWithTool: Pair<Coord, CaveTools>): CavePath {
-        val nextTime = if(path.last().first != coordWithTool.first) time + 1
-        else time + 7
-        return CavePath(nextTime, path + coordWithTool)
-    }
-}
-
-data class Cave(val target: Coord, val depth: Int) {
-    fun regionType(coord: Coord) = regionType(coord.x, coord.y, target, depth)
-    fun regionType(x: Int, y: Int) = regionType(x, y, target, depth)
-    override fun toString() = toString(target.x * 2, target.y * 2)
-    fun toString(maxX: Int, maxY: Int) = (0..maxY).joinToString("") { y ->
-        (0..maxY).joinToString("") { x ->
-            when {
-                x == 0 && y == 0 -> "M"
-                x == target.x && y == target.y -> "T"
-                else -> regionType(x, y).toString()
-            }
-        } + "\n"
-    }
-
-    fun findPath(): CavePath? {
-        val start = Coord(0, 0) to CaveTools.TORCH
-        val startPath = mutableMapOf(start to CavePath(0, listOf(start)))
-        return findPath(setOf(start), startPath)
-    }
-    tailrec fun findPath(current: Set<Pair<Coord, CaveTools>>, alreadyFound: MutableMap<Pair<Coord, CaveTools>, CavePath>): CavePath? {
-        val next = current.flatMap { coordWithTool ->
-            val nextCoordsWithTool = findNextCoordsWithTool(coordWithTool)
-            nextCoordsWithTool.mapNotNull { nextCoordWithTool ->
-                val pathToCurrentCoord = alreadyFound[coordWithTool]!!
-                val nextPath = pathToCurrentCoord.add(nextCoordWithTool)
-                val existingPath = alreadyFound[nextCoordWithTool]
-                if (existingPath == null  || existingPath.time > nextPath.time) {
-                    alreadyFound[nextCoordWithTool] = nextPath
-                    nextCoordWithTool
-                } else null
-            }
-        }
-        val filteredNext = next.filter { (coord, _) ->
-            coord.x <= target.x + 100 && coord.y <= target.y + 100 // if detour is too long, it would be better to change gear TODO
-            // TODO better limit, when no path is shorter than the best path to target
-        }.toSet()
-        return if (filteredNext.isEmpty()) alreadyFound[target to CaveTools.TORCH]
-        else return findPath(filteredNext, alreadyFound)
-    }
-
-    fun findNextCoordsWithTool(currentCoordWithTool: Pair<Coord, CaveTools>): Set<Pair<Coord, CaveTools>> {
-        val currentCoord = currentCoordWithTool.first
-        val currentTool = currentCoordWithTool.second
-        val currentRegionType = regionType(currentCoord)
-        val otherToolsForCurrentCoord = currentRegionType.allowedTools.filter { it != currentTool }
-        val currentCoordWithOtherTools = otherToolsForCurrentCoord.map { currentCoordWithTool.first to it }
-        val neighbors = currentCoord.caveNeighbours()
-        val neighborsWithSameTool = neighbors.mapNotNull { neighborCoord ->
-            val neighborRegionType = regionType(neighborCoord)
-            if (neighborRegionType.allowedTools.contains(currentTool)) neighborCoord to currentTool
-            else null
-        }
-        return (currentCoordWithOtherTools + neighborsWithSameTool).toSet()
-    }
-}
-
-fun Coord.caveNeighbours(): Set<Coord> =
-        listOf(Coord(x, y-1), Coord(x+1, y), Coord(x, y+1), Coord(x-1, y))
-                .filter { it.x >= 0 && it.y >= 0 }.toSet()
-
