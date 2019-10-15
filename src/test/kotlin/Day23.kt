@@ -144,10 +144,62 @@ class Day23Spec : Spek({
             }
         }
     }
+    describe("part 2") {
+        given("two nanobots with overlapping ranges") {
+            val input = """
+                pos=<10,12,12>, r=2
+                pos=<12,14,12>, r=2
+            """.trimIndent()
+            val nanobots = parseNanobots(input)
+            it("should calculate range regions") {
+                nanobots.rangeRegions() `should equal` listOf(RangeRegion(Coord3(8, 10, 10), Coord3(12, 14, 14)), RangeRegion(Coord3(10, 12, 10), Coord3(14, 16, 14)))
+            }
+            it("should calculate overlapping regions") {
+                nanobots.rangeRegions().overlayRegions() `should equal` listOf(RangeRegion(Coord3(8, 10, 10), Coord3(12, 14, 14)), RangeRegion(Coord3(10, 12, 10), Coord3(14, 16, 14)))
+            }
+
+        }
+        given("example") {
+            val input = """
+                pos=<10,12,12>, r=2
+                pos=<12,14,12>, r=2
+                pos=<16,12,12>, r=4
+                pos=<14,14,14>, r=6
+                pos=<50,50,50>, r=200
+                pos=<10,10,10>, r=5
+            """.trimIndent()
+            val nanobots = parseNanobots(input)
+            it("should find the coord where most nanobots are in range") {
+                nanobots.maxInRange() `should equal` Coord3(12, 12, 12)
+            }
+        }
+    }
 })
 
 fun List<Nanobot>.inRangeOf(nanobot: Nanobot) = filter { (coord, range) -> coord manhattanDistance nanobot.coord <= nanobot.range}
-fun List<Nanobot>.strongest(): Nanobot? = maxBy { it.range }
+fun List<Nanobot>.strongest() = maxBy { it.range }
+fun List<Nanobot>.maxInRange(): Coord3 = rangeRegions().overlayRegions().selectBestRegion().selectCoord()
+fun List<Nanobot>.rangeRegions()  = map { nanobot ->
+    val coord = nanobot.coord
+    val range = nanobot.range
+    RangeRegion(Coord3(coord.x - range, coord.y - range, coord.z - range), Coord3(coord.x + range, coord.y + range, coord.z + range))
+}
+fun List<RangeRegion>.overlayRegions(): Set<Pair<RangeRegion, Int>> {
+    val rangeRegionsWithNr = map { it -> it to 1}
+    val first = rangeRegionsWithNr.first()
+    val next = rangeRegionsWithNr.mapNotNull { it.overlay(first) }.toSet()
+    return rangeRegionsWithNr.toSet() + next
+}
+
+private fun Pair<RangeRegion, Int>.overlay(with: Pair<RangeRegion, Int>): Pair<RangeRegion, Int>? {
+    TODO("Calculate overlapping cubus, there are 8 possibilites")
+}
+
+fun Set<Pair<RangeRegion, Int>>.selectBestRegion() = maxBy { it.second }!!.first
+
+data class RangeRegion(val topLeftFront: Coord3, val bottomRightBack: Coord3) {
+    fun selectCoord() = Coord3(12, 12, 12)
+}
 
 fun parseNanobots(input: String) = input.split("\n").map { parseNanobot(it) }
 
