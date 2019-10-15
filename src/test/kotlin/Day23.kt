@@ -131,8 +131,6 @@ fun parseNanobot(input: String): Nanobot {
     return Nanobot(coord, values[4].toInt())
 }
 
-
-
 data class Nanobot(val coord: Coord3, val range: Int)
 
 data class Coord3(val x: Int, val y: Int, val z: Int) {
