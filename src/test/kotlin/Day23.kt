@@ -1,8 +1,10 @@
-import net.bytebuddy.description.type.TypeDefinition.Sort.describe
 import org.amshove.kluent.`should equal`
+import org.amshove.kluent.shouldContainSame
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
+import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
+import kotlin.math.absoluteValue
 
 /*
 --- Day 23: Experimental Emergency Teleportation ---
@@ -78,8 +80,45 @@ class Day23Spec : Spek({
                 )
             }
         }
+        given("example") {
+           val input = """
+                pos=<0,0,0>, r=4
+                pos=<1,0,0>, r=1
+                pos=<4,0,0>, r=3
+                pos=<0,2,0>, r=1
+                pos=<0,5,0>, r=3
+                pos=<0,0,3>, r=1
+                pos=<1,1,1>, r=1
+                pos=<1,1,2>, r=1
+                pos=<1,3,1>, r=1 
+            """.trimIndent()
+            val nanobots = parseNanobots(input)
+            it("should find strongest nanobot") {
+                nanobots.strongest() `should equal` Nanobot(Coord3(0, 0, 0), 4)
+            }
+            it("should find nanobots in range") {
+                nanobots.inRangeOf(Nanobot(Coord3(0, 0, 0), 4)).map { it.coord } shouldContainSame listOf(
+                        Coord3(0, 0, 0), Coord3(1, 0, 0), Coord3(4, 0, 0), Coord3(0, 2, 0),
+                        Coord3(0, 0, 3), Coord3(1, 1, 1), Coord3(1, 1, 2)
+                    )
+            }
+        }
+        given("exercise") {
+            val inputString = readResource("day23Input.txt")
+            val nanobots = parseNanobots(inputString)
+            val strongest = nanobots.strongest()
+            it("should find strongest nanobot") {
+                 strongest `should equal` Nanobot(coord=Coord3(x=43010063, y=90701411, z=15615412), range=99248181)
+            }
+            it("should find number of nanobots in range") {
+                nanobots.inRangeOf(strongest!!).size `should equal` 408
+            }
+        }
     }
 })
+
+fun List<Nanobot>.inRangeOf(nanobot: Nanobot) = filter { (coord, range) -> coord manhattanDistance nanobot.coord <= nanobot.range}
+fun List<Nanobot>.strongest(): Nanobot? = maxBy { it.range }
 
 fun parseNanobots(input: String) = input.split("\n").map { parseNanobot(it) }
 
@@ -96,4 +135,6 @@ fun parseNanobot(input: String): Nanobot {
 
 data class Nanobot(val coord: Coord3, val range: Int)
 
-data class Coord3(val x: Int, val y: Int, val z: Int)
+data class Coord3(val x: Int, val y: Int, val z: Int) {
+    infix fun manhattanDistance(coord: Coord3) = (x - coord.x).absoluteValue + (y - coord.y).absoluteValue + (z - coord.z).absoluteValue
+}
