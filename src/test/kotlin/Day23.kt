@@ -199,13 +199,20 @@ class Day23Spec : Spek({
     }
 })
 
-private fun <E> Set<E>.allSubSets(): Set<Set<E>> {
-    fun subLists(list: List<E>): List<Set<E>> {
-        if (list.isEmpty()) return listOf(emptySet<E>())
+fun <E> Set<E>.allSubSets(): Set<Set<E>> {
+    fun merge(set: Set<E>?, e: E): Set<E>? = if (set == null) setOf(e) else set + e
+
+    val resultIncludingNull = allSubSets(::merge)
+    return resultIncludingNull.map { it ?: emptySet<E>() }.toSet()
+}
+
+fun <E, M> Set<E>.allSubSets(merge: (M?, E) -> M?): Set<M?> {
+    fun subLists(list: List<E>): List<M?> {
+        if (list.isEmpty()) return listOf(null)
         else {
             val first = list.first()
             val subLists = subLists(list.drop(1))
-            return subLists.map { it + first } + subLists
+            return subLists.map { merge(it, first) } + subLists
         }
     }
     return subLists(toList()).toSet()
