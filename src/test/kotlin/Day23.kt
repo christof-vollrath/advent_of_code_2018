@@ -4,7 +4,10 @@ import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
+import org.jetbrains.spek.data_driven.data
+import org.jetbrains.spek.data_driven.on as onData
 import kotlin.math.absoluteValue
+import kotlin.math.pow
 
 /*
 --- Day 23: Experimental Emergency Teleportation ---
@@ -157,8 +160,28 @@ class Day23Spec : Spek({
             it("should calculate overlapping regions") {
                 nanobots.rangeRegions().overlayRegions() `should equal` listOf(RangeRegion(Coord3(8, 10, 10), Coord3(12, 14, 14)), RangeRegion(Coord3(10, 12, 10), Coord3(14, 16, 14)))
             }
-
         }
+        describe("subsets") {
+            given("inputs") {
+                val testData = arrayOf(
+                        data(emptySet<Int>(), setOf(emptySet<Int>())),
+                        data(setOf(1), setOf(emptySet<Int>(), setOf(1))),
+                        data(setOf(1, 2), setOf(emptySet<Int>(), setOf(1), setOf(1, 2), setOf(2))),
+                        data(setOf(1, 2, 3), setOf(emptySet<Int>(), setOf(1), setOf(1, 2), setOf(1, 2, 3), setOf(1, 3), setOf(2), setOf(2, 3), setOf(3)))
+                )
+                onData("for %s it should bild results", with = *testData) { input, expected ->
+                    input.allSubSets() `should equal` expected
+                }
+            }
+            given("set with 10 elements") {
+                val set10 = List(10) { it + 1}.toSet()
+                it("should create all sub sets which has size of 2^10") {
+                    val subSets = set10.allSubSets()
+                    subSets.size `should equal` (2.0).pow(10).toInt()
+                }
+            }
+        }
+
         given("example") {
             val input = """
                 pos=<10,12,12>, r=2
@@ -175,6 +198,18 @@ class Day23Spec : Spek({
         }
     }
 })
+
+private fun <E> Set<E>.allSubSets(): Set<Set<E>> {
+    fun subLists(list: List<E>): List<Set<E>> {
+        if (list.isEmpty()) return listOf(emptySet<E>())
+        else {
+            val first = list.first()
+            val subLists = subLists(list.drop(1))
+            return subLists.map { it + first } + subLists
+        }
+    }
+    return subLists(toList()).toSet()
+}
 
 fun List<Nanobot>.inRangeOf(nanobot: Nanobot) = filter { (coord, range) -> coord manhattanDistance nanobot.coord <= nanobot.range}
 fun List<Nanobot>.strongest() = maxBy { it.range }
