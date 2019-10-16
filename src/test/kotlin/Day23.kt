@@ -181,7 +181,9 @@ class Day23Spec : Spek({
                 }
             }
         }
-
+        describe("overlapping blocks") {
+            TODO("test overlap")
+        }
         given("example") {
             val input = """
                 pos=<10,12,12>, r=2
@@ -200,19 +202,19 @@ class Day23Spec : Spek({
 })
 
 fun <E> Set<E>.allSubSets(): Set<Set<E>> {
-    fun merge(set: Set<E>?, e: E): Set<E>? = if (set == null) setOf(e) else set + e
+    fun merge(set: Set<E>, e: E): Set<E> = set + e
 
-    val resultIncludingNull = allSubSets(::merge)
-    return resultIncludingNull.map { it ?: emptySet<E>() }.toSet()
+    val resultIncludingNull = allSubSets(emptySet<E>(), ::merge)
+    return resultIncludingNull.toSet()
 }
 
-fun <E, M> Set<E>.allSubSets(merge: (M?, E) -> M?): Set<M?> {
-    fun subLists(list: List<E>): List<M?> {
-        if (list.isEmpty()) return listOf(null)
+fun <E, M> Set<E>.allSubSets(empty: M, merge: (M, E) -> M): Set<M> {
+    fun subLists(list: List<E>): List<M> {
+        return if (list.isEmpty()) listOf(empty)
         else {
             val first = list.first()
             val subLists = subLists(list.drop(1))
-            return subLists.map { merge(it, first) } + subLists
+            subLists.map { merge(it, first) } + subLists
         }
     }
     return subLists(toList()).toSet()
@@ -229,11 +231,11 @@ fun List<Nanobot>.rangeRegions()  = map { nanobot ->
 fun List<RangeRegion>.overlayRegions(): Set<Pair<RangeRegion, Int>> {
     val rangeRegionsWithNr = map { it -> it to 1}
     val first = rangeRegionsWithNr.first()
-    val next = rangeRegionsWithNr.mapNotNull { it.overlay(first) }.toSet()
+    val next = rangeRegionsWithNr.mapNotNull { it.overlap(first) }.toSet()
     return rangeRegionsWithNr.toSet() + next
 }
 
-private fun Pair<RangeRegion, Int>.overlay(with: Pair<RangeRegion, Int>): Pair<RangeRegion, Int>? {
+private fun Pair<RangeRegion, Int>.overlap(with: Pair<RangeRegion, Int>): Pair<RangeRegion, Int>? {
     TODO("Calculate overlapping cubus, there are 8 possibilites")
 }
 
