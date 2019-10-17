@@ -258,18 +258,15 @@ class Day23Spec : Spek({
 })
 
 fun <E> Set<E>.allSubSets(): Set<Set<E>> {
-    fun merge(set: Set<E>?, e: E?): Set<E>? =
-            if (set == null)
-                if (e == null) null
-                else setOf(e)
-            else if (e == null) set
-                else set + e
+    fun merge(set: Set<E>?, e: E): Set<E>? =
+            if (set == null) setOf(e)
+            else set + e
 
     val resultIncludingNull = allSubSets(::merge)
     return resultIncludingNull.map { it ?: emptySet<E>() }.toSet()
 }
 
-fun <E, M> Set<E>.allSubSets(merge: (M?, E?) -> M?): Set<M?> {
+fun <E, M> Set<E>.allSubSets(merge: (M?, E) -> M): Set<M?> {
     fun subLists(list: List<E>): List<M?> {
         if (list.isEmpty()) return listOf(null)
         else {
@@ -290,9 +287,8 @@ fun List<Nanobot>.rangeRegions()  = map { nanobot ->
     RangeRegion(Coord3(coord.x - range, coord.y - range, coord.z - range), Coord3(coord.x + range, coord.y + range, coord.z + range))
 }
 fun List<RangeRegion>.overlappingRegions(): Set<Pair<RangeRegion, Int>> {
-    fun mergeRegions(region1: Pair<RangeRegion, Int>?, region2: Pair<RangeRegion, Int>?): Pair<RangeRegion, Int>? {
+    fun mergeRegions(region1: Pair<RangeRegion, Int>?, region2: Pair<RangeRegion, Int>): Pair<RangeRegion, Int>? {
         return if (region1 == null) region2
-        else if (region2 == null) region1
         else region1.overlap(region2)
     }
     val rangeRegionsWithNr = map { it -> it to 1 }.toSet()
