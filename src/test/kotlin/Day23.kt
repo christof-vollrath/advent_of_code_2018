@@ -4,7 +4,10 @@ import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
+import org.jetbrains.spek.api.dsl.on
 import org.jetbrains.spek.data_driven.data
+import java.lang.Integer.max
+import java.lang.Integer.min
 import org.jetbrains.spek.data_driven.on as onData
 import kotlin.math.absoluteValue
 import kotlin.math.pow
@@ -158,7 +161,11 @@ class Day23Spec : Spek({
                 nanobots.rangeRegions() `should equal` listOf(RangeRegion(Coord3(8, 10, 10), Coord3(12, 14, 14)), RangeRegion(Coord3(10, 12, 10), Coord3(14, 16, 14)))
             }
             it("should calculate overlapping regions") {
-                nanobots.rangeRegions().overlayRegions() `should equal` listOf(RangeRegion(Coord3(8, 10, 10), Coord3(12, 14, 14)), RangeRegion(Coord3(10, 12, 10), Coord3(14, 16, 14)))
+                nanobots.rangeRegions().overlappingRegions() `should equal` setOf (
+                        RangeRegion(Coord3(10, 12, 10), Coord3(12, 14, 14)) to 2,
+                        RangeRegion(Coord3(8, 10, 10), Coord3(12, 14, 14)) to 1,
+                        RangeRegion(Coord3(10, 12, 10), Coord3(14, 16, 14)) to 1
+                    )
             }
         }
         describe("subsets") {
@@ -181,8 +188,57 @@ class Day23Spec : Spek({
                 }
             }
         }
-        describe("overlapping blocks") {
-            TODO("test overlap")
+        describe("overlapping regions in just one point") {
+            given("two overlapping regions in one point") {
+                val region1 = RangeRegion(Coord3(1, 1, 1), Coord3(3, 4, 5))
+                val region2 = RangeRegion(Coord3(3, 4, 5), Coord3(4, 5, 6))
+                on("calculate overlap") {
+                    val overlappingRegion = region1.overlap(region2)
+                    it("should find the overlapping point as a region with 0 size") {
+                        overlappingRegion `should equal` RangeRegion(Coord3(3, 4, 5), Coord3(3, 4, 5))
+                    }
+                }
+                on("calculate overlap with reversed regions") {
+                    val overlappingRegion = region2.overlap(region1)
+                    it("should find the same overlap") {
+                        overlappingRegion `should equal` RangeRegion(Coord3(3, 4, 5), Coord3(3, 4, 5))
+                    }
+                }
+            }
+            given("two overlapping regions") {
+                val region1 = RangeRegion(Coord3(1, 1, 1), Coord3(3, 4, 5))
+                val region2 = RangeRegion(Coord3(2, 2, 2), Coord3(4, 5, 6))
+                on("calculate overlap") {
+                    val overlappingRegion = region1.overlap(region2)
+                    it("should find the overlap") {
+                        overlappingRegion `should equal` RangeRegion(Coord3(2, 2, 2), Coord3(3, 4, 5))
+                    }
+                }
+                on("calculate overlap with reversed regions") {
+                    val overlappingRegion = region2.overlap(region1)
+                    it("should find the same overlap") {
+                        overlappingRegion `should equal` RangeRegion(Coord3(2, 2, 2), Coord3(3, 4, 5))
+                    }
+                }
+            }
+        }
+        describe("non overlapping regions") {
+            given("two non overlapping regions") {
+                val region1 = RangeRegion(Coord3(1, 1, 1), Coord3(3, 1, 1))
+                val region2 = RangeRegion(Coord3(4, 1, 1), Coord3(5, 1, 1))
+                on("calculate overlap") {
+                    val overlappingRegion = region1.overlap(region2)
+                    it("should find no overlap") {
+                        overlappingRegion `should equal` null
+                    }
+                }
+                on("calculate overlap with reversed regions") {
+                    val overlappingRegion = region2.overlap(region1)
+                    it("should find also no overlap") {
+                        overlappingRegion `should equal` null
+                    }
+                }
+            }
         }
         given("example") {
             val input = """
@@ -202,41 +258,68 @@ class Day23Spec : Spek({
 })
 
 fun <E> Set<E>.allSubSets(): Set<Set<E>> {
-    fun merge(set: Set<E>, e: E): Set<E> = set + e
+    fun merge(set: Set<E>?, e: E?): Set<E>? =
+            if (set == null)
+                if (e == null) null
+                else setOf(e)
+            else if (e == null) set
+                else set + e
 
-    val resultIncludingNull = allSubSets(emptySet<E>(), ::merge)
-    return resultIncludingNull.toSet()
+    val resultIncludingNull = allSubSets(::merge)
+    return resultIncludingNull.map { it ?: emptySet<E>() }.toSet()
 }
 
-fun <E, M> Set<E>.allSubSets(empty: M, merge: (M, E) -> M): Set<M> {
-    fun subLists(list: List<E>): List<M> {
-        return if (list.isEmpty()) listOf(empty)
+fun <E, M> Set<E>.allSubSets(merge: (M?, E?) -> M?): Set<M?> {
+    fun subLists(list: List<E>): List<M?> {
+        if (list.isEmpty()) return listOf(null)
         else {
             val first = list.first()
             val subLists = subLists(list.drop(1))
-            subLists.map { merge(it, first) } + subLists
+            return subLists.map { merge(it, first) } + subLists
         }
     }
     return subLists(toList()).toSet()
 }
 
-fun List<Nanobot>.inRangeOf(nanobot: Nanobot) = filter { (coord, range) -> coord manhattanDistance nanobot.coord <= nanobot.range}
+fun List<Nanobot>.inRangeOf(nanobot: Nanobot) = filter { (coord, _) -> coord manhattanDistance nanobot.coord <= nanobot.range}
 fun List<Nanobot>.strongest() = maxBy { it.range }
-fun List<Nanobot>.maxInRange(): Coord3 = rangeRegions().overlayRegions().selectBestRegion().selectCoord()
+fun List<Nanobot>.maxInRange(): Coord3 = rangeRegions().overlappingRegions().selectBestRegion().selectCoord()
 fun List<Nanobot>.rangeRegions()  = map { nanobot ->
     val coord = nanobot.coord
     val range = nanobot.range
     RangeRegion(Coord3(coord.x - range, coord.y - range, coord.z - range), Coord3(coord.x + range, coord.y + range, coord.z + range))
 }
-fun List<RangeRegion>.overlayRegions(): Set<Pair<RangeRegion, Int>> {
-    val rangeRegionsWithNr = map { it -> it to 1}
-    val first = rangeRegionsWithNr.first()
-    val next = rangeRegionsWithNr.mapNotNull { it.overlap(first) }.toSet()
-    return rangeRegionsWithNr.toSet() + next
+fun List<RangeRegion>.overlappingRegions(): Set<Pair<RangeRegion, Int>> {
+    fun mergeRegions(region1: Pair<RangeRegion, Int>?, region2: Pair<RangeRegion, Int>?): Pair<RangeRegion, Int>? {
+        return if (region1 == null) region2
+        else if (region2 == null) region1
+        else region1.overlap(region2)
+    }
+    val rangeRegionsWithNr = map { it -> it to 1 }.toSet()
+    return rangeRegionsWithNr.allSubSets(::mergeRegions).filterNotNull().toSet()
 }
 
-private fun Pair<RangeRegion, Int>.overlap(with: Pair<RangeRegion, Int>): Pair<RangeRegion, Int>? {
-    TODO("Calculate overlapping cubus, there are 8 possibilites")
+fun Pair<RangeRegion, Int>.overlap(with: Pair<RangeRegion, Int>): Pair<RangeRegion, Int>? {
+    val overlappingRegion = first.overlap(with.first)
+    return if (overlappingRegion == null) null
+    else overlappingRegion to second + with.second
+}
+
+fun RangeRegion.overlap(with: RangeRegion): RangeRegion? {
+    val topLeftFront = Coord3(
+            max(topLeftFront.x, with.topLeftFront.x),
+            max(topLeftFront.y, with.topLeftFront.y),
+            max(topLeftFront.z, with.topLeftFront.z)
+         )
+    val bottomRightBack = Coord3(
+            min(bottomRightBack.x, with.bottomRightBack.x),
+            min(bottomRightBack.y, with.bottomRightBack.y),
+            min(bottomRightBack.z, with.bottomRightBack.z)
+    )
+    return if (topLeftFront.x > bottomRightBack.x ||
+                topLeftFront.y > bottomRightBack.y ||
+                topLeftFront.z > bottomRightBack.z) null
+    else RangeRegion(topLeftFront, bottomRightBack)
 }
 
 fun Set<Pair<RangeRegion, Int>>.selectBestRegion() = maxBy { it.second }!!.first
