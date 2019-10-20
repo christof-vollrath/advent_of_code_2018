@@ -1,10 +1,7 @@
 import org.amshove.kluent.`should equal`
 import org.amshove.kluent.shouldContainSame
 import org.jetbrains.spek.api.Spek
-import org.jetbrains.spek.api.dsl.describe
-import org.jetbrains.spek.api.dsl.given
-import org.jetbrains.spek.api.dsl.it
-import org.jetbrains.spek.api.dsl.on
+import org.jetbrains.spek.api.dsl.*
 import org.jetbrains.spek.data_driven.data
 import java.lang.Integer.max
 import java.lang.Integer.min
@@ -240,6 +237,27 @@ class Day23Spec : Spek({
                 }
             }
         }
+        describe("compress range regions") {
+            given("some range regions which can be compressed") {
+                val regions = setOf(
+                    RangeRegion(Coord3(1, 1, 1), Coord3(3, 1, 1)) to 1,
+                    RangeRegion(Coord3(1, 1, 1), Coord3(3, 1, 2)) to 2,
+                    RangeRegion(Coord3(1, 1, 1), Coord3(3, 1, 2)) to 1,
+                    RangeRegion(Coord3(1, 1, 1), Coord3(3, 1, 1)) to 3,
+                    null
+                )
+                on("compress") {
+                    val result = regions.compress()
+                    it("should compress regions to region with highest number") {
+                        result `should equal` setOf(
+                                RangeRegion(Coord3(1, 1, 1), Coord3(3, 1, 2)) to 2,
+                                RangeRegion(Coord3(1, 1, 1), Coord3(3, 1, 1)) to 3,
+                                null
+                        )
+                    }
+                }
+            }
+         }
         given("example") {
             val input = """
                 pos=<10,12,12>, r=2
@@ -254,8 +272,23 @@ class Day23Spec : Spek({
                 nanobots.maxInRange() `should equal` Coord3(12, 12, 12)
             }
         }
+        given("exercise") {
+            val inputString = readResource("day23Input.txt")
+            val nanobots = parseNanobots(inputString)
+            it("should find the coord where most nanobots are in range") {
+                nanobots.maxInRange() `should equal` Coord3(12, 12, 12)
+            }
+        }
     }
 })
+
+private fun Set<Pair<RangeRegion, Int>?>.compress(): Set<Pair<RangeRegion, Int>?> =
+        groupBy { it?.first }
+        .map { (rangeRegion, regionsWithNr ) ->
+            if (rangeRegion != null) regionsWithNr.filterNotNull().maxBy { regionWithNr -> regionWithNr.second }
+            else null
+        }
+        .toSet()
 
 fun <E> Set<E>.allSubSets(): Set<Set<E>> {
     fun merge(set: Set<E>?, e: E): Set<E>? =
@@ -266,16 +299,19 @@ fun <E> Set<E>.allSubSets(): Set<Set<E>> {
     return resultIncludingNull.map { it ?: emptySet<E>() }.toSet()
 }
 
-fun <E, M> Set<E>.allSubSets(merge: (M?, E) -> M): Set<M?> {
-    fun subLists(list: List<E>): List<M?> {
-        if (list.isEmpty()) return listOf(null)
+fun <E, M> Set<E>.allSubSets(merge: (M?, E) -> M, compress: (Set<M?>) -> Set<M?> = { it }): Set<M?> {
+    fun subSets(list: List<E>): Set<M?> {
+        println("sublists list.size=${list.size}")
+        if (list.isEmpty()) return setOf(null)
         else {
             val first = list.first()
-            val subLists = subLists(list.drop(1))
-            return subLists.map { merge(it, first) } + subLists
+            val subLists = subSets(list.drop(1))
+            println("allSubSets list.size=${list.size} subLists.size=${subLists.size}")
+            //println("allSubSets list=${list} subLists=${subLists}")
+            return compress(subLists.map { merge(it, first) }.toSet() + subLists)
         }
     }
-    return subLists(toList()).toSet()
+    return subSets(toList())
 }
 
 fun List<Nanobot>.inRangeOf(nanobot: Nanobot) = filter { (coord, _) -> coord manhattanDistance nanobot.coord <= nanobot.range}
@@ -291,8 +327,9 @@ fun List<RangeRegion>.overlappingRegions(): Set<Pair<RangeRegion, Int>> {
         return if (region1 == null) region2
         else region1.overlap(region2)
     }
+    fun compressRegions(regions: Set<Pair<RangeRegion, Int>?>) = regions.compress()
     val rangeRegionsWithNr = map { it -> it to 1 }.toSet()
-    return rangeRegionsWithNr.allSubSets(::mergeRegions).filterNotNull().toSet()
+    return rangeRegionsWithNr.allSubSets(::mergeRegions, ::compressRegions).filterNotNull().toSet()
 }
 
 fun Pair<RangeRegion, Int>.overlap(with: Pair<RangeRegion, Int>): Pair<RangeRegion, Int>? {
