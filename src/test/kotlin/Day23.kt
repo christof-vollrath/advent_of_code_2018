@@ -185,6 +185,19 @@ class Day23Spec : Spek({
                 }
             }
         }
+        describe("sublists sequence") {
+            given("inputs") {
+                val testData = arrayOf(
+                        data(emptyList<Int>(), setOf(emptyList<Int>())),
+                        data(listOf(1), setOf(emptyList<Int>(), listOf(1))),
+                        data(listOf(1, 2), setOf(emptyList<Int>(), listOf(1), listOf(1, 2), listOf(2))),
+                        data(listOf(1, 2, 3), setOf(emptyList<Int>(), listOf(1), listOf(1, 2), listOf(1, 2, 3), listOf(1, 3), listOf(2), listOf(2, 3), listOf(3)))
+                )
+                onData("for %s it should bild results", with = *testData) { input, expected ->
+                    input.allSubLists().toSet() `should equal` expected
+                }
+            }
+        }
         describe("overlapping regions in just one point") {
             given("two overlapping regions in one point") {
                 val region1 = RangeRegion(Coord3(1, 1, 1), Coord3(3, 4, 5))
@@ -289,6 +302,17 @@ private fun Set<Pair<RangeRegion, Int>?>.compress(): Set<Pair<RangeRegion, Int>?
             else null
         }
         .toSet()
+
+fun <E> List<E>.allSubLists(): Sequence<List<E>> =
+    sequence {
+        if (this@allSubLists.isEmpty()) yield(emptyList<E>())
+        else {
+            drop(1).allSubLists().forEach {
+                yield(it)
+                yield(listOf(first()) + it)
+            }
+        }
+    }
 
 fun <E> Set<E>.allSubSets(): Set<Set<E>> {
     fun merge(set: Set<E>?, e: E): Set<E>? =
