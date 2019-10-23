@@ -194,7 +194,9 @@ class Day23Spec : Spek({
                         data(listOf(1, 2, 3), setOf(emptyList<Int>(), listOf(1), listOf(1, 2), listOf(1, 2, 3), listOf(1, 3), listOf(2), listOf(2, 3), listOf(3)))
                 )
                 onData("for %s it should bild results", with = *testData) { input, expected ->
-                    input.allSubLists().toSet() `should equal` expected
+                    val result= input.allSubListsAsSequence()
+                    println(result.toList())
+                    result.toSet() `should equal` expected
                 }
             }
         }
@@ -302,17 +304,39 @@ private fun Set<Pair<RangeRegion, Int>?>.compress(): Set<Pair<RangeRegion, Int>?
             else null
         }
         .toSet()
-
-fun <E> List<E>.allSubLists(): Sequence<List<E>> =
+/*
+fun <E> List<E>.allSubListsAsSequence(): Sequence<List<E>> =
     sequence {
-        if (this@allSubLists.isEmpty()) yield(emptyList<E>())
+        if (isEmpty()) yield(emptyList<E>())
         else {
-            drop(1).allSubLists().forEach {
+            drop(1).allSubListsAsSequence().forEach {
                 yield(it)
                 yield(listOf(first()) + it)
             }
         }
     }
+*/
+fun List<Int>.allSubListsAsSequence(): Sequence<List<Int>> {
+    fun merge(list: List<Int>?, e: Int?): List<Int>? =
+            if (list == null)
+                if (e == null) null
+                else listOf(e)
+            else if (e == null) list
+            else listOf(e) + list
+
+    return allSubListsAsSequence(::merge).map { it ?: emptyList<Int>() }
+}
+
+fun <E, M> List<E>.allSubListsAsSequence(merge: (M?, E?) -> M?): Sequence<M?> =
+        sequence {
+            if (isEmpty()) yield(null)
+            else {
+                drop(1).allSubListsAsSequence(merge).forEach {
+                    yield(merge(it, null))
+                    yield(merge(it, first()))
+                }
+            }
+        }
 
 fun <E> Set<E>.allSubSets(): Set<Set<E>> {
     fun merge(set: Set<E>?, e: E): Set<E>? =
