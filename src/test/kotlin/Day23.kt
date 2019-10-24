@@ -158,7 +158,7 @@ class Day23Spec : Spek({
                 nanobots.rangeRegions() `should equal` listOf(RangeRegion(Coord3(8, 10, 10), Coord3(12, 14, 14)), RangeRegion(Coord3(10, 12, 10), Coord3(14, 16, 14)))
             }
             it("should calculate overlapping regions") {
-                nanobots.rangeRegions().overlappingRegions() `should equal` setOf (
+                nanobots.rangeRegions().overlappingRegions().toSet() `should equal` setOf (
                         RangeRegion(Coord3(10, 12, 10), Coord3(12, 14, 14)) to 2,
                         RangeRegion(Coord3(8, 10, 10), Coord3(12, 14, 14)) to 1,
                         RangeRegion(Coord3(10, 12, 10), Coord3(14, 16, 14)) to 1
@@ -318,17 +318,15 @@ fun <E> List<E>.allSubListsAsSequence(): Sequence<List<E>> =
 */
 fun List<Int>.allSubListsAsSequence(): Sequence<List<Int>> {
     fun merge(list: List<Int>?, e: Int?): List<Int>? =
-            if (list == null)
-                if (e == null) null
-                else listOf(e)
-            else if (e == null) list
-            else listOf(e) + list
-
+            if (list != null && e != null) listOf(e) + list
+            else if (e != null) listOf(e)
+            else list
     return allSubListsAsSequence(::merge).map { it ?: emptyList<Int>() }
 }
 
 fun <E, M> List<E>.allSubListsAsSequence(merge: (M?, E?) -> M?): Sequence<M?> =
         sequence {
+            println("allSubListsAsSequence list.size=${size}")
             if (isEmpty()) yield(null)
             else {
                 drop(1).allSubListsAsSequence(merge).forEach {
@@ -370,6 +368,7 @@ fun List<Nanobot>.rangeRegions()  = map { nanobot ->
     val range = nanobot.range
     RangeRegion(Coord3(coord.x - range, coord.y - range, coord.z - range), Coord3(coord.x + range, coord.y + range, coord.z + range))
 }
+/*
 fun List<RangeRegion>.overlappingRegions(): Set<Pair<RangeRegion, Int>> {
     fun mergeRegions(region1: Pair<RangeRegion, Int>?, region2: Pair<RangeRegion, Int>): Pair<RangeRegion, Int>? {
         return if (region1 == null) region2
@@ -378,6 +377,16 @@ fun List<RangeRegion>.overlappingRegions(): Set<Pair<RangeRegion, Int>> {
     fun compressRegions(regions: Set<Pair<RangeRegion, Int>?>) = regions.compress()
     val rangeRegionsWithNr = map { it -> it to 1 }.toSet()
     return rangeRegionsWithNr.allSubSets(::mergeRegions, ::compressRegions).filterNotNull().toSet()
+}
+
+ */
+
+fun List<RangeRegion>.overlappingRegions(): Sequence<Pair<RangeRegion, Int>> {
+    fun mergeRegions(region1: Pair<RangeRegion, Int>?, region2: Pair<RangeRegion, Int>?): Pair<RangeRegion, Int>? =
+        if (region1 != null && region2 != null) region1.overlap(region2)
+        else region1 ?: region2
+    val rangeRegionsWithNr = map { it -> it to 1 }
+    return rangeRegionsWithNr.allSubListsAsSequence(::mergeRegions).filterNotNull()
 }
 
 fun Pair<RangeRegion, Int>.overlap(with: Pair<RangeRegion, Int>): Pair<RangeRegion, Int>? {
@@ -402,8 +411,20 @@ fun RangeRegion.overlap(with: RangeRegion): RangeRegion? {
                 topLeftFront.z > bottomRightBack.z) null
     else RangeRegion(topLeftFront, bottomRightBack)
 }
-
+/*
 fun Set<Pair<RangeRegion, Int>>.selectBestRegion() = maxBy { it.second }!!.first
+ */
+fun Sequence<Pair<RangeRegion, Int>>.selectBestRegion(): RangeRegion {
+    var i: Long = 0L
+    var max: Int = 0
+    return map { pair ->
+        i++
+        if (i % 10_000_000L == 0L) println("$i: $pair - $max ")
+        if (pair.second > max) max = pair.second
+        pair
+    }
+    .maxBy { it.second }!!.first
+}
 
 data class RangeRegion(val topLeftFront: Coord3, val bottomRightBack: Coord3) {
     fun selectCoord() = Coord3(12, 12, 12)
