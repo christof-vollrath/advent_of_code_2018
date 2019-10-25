@@ -290,12 +290,23 @@ class Day23Spec : Spek({
         given("exercise") {
             val inputString = readResource("day23Input.txt")
             val nanobots = parseNanobots(inputString)
-            it("should find the coord where most nanobots are in range") {
+            it("should explore exercise nanobots") {
+                nanobots.coords().filter { it > 0 }.max() `should equal` 223_126_255
+                nanobots.coords().filter { it > 0 }.min() `should equal` 25_129
+                nanobots.coords().filter { it < 0 }.max() `should equal` -120_483
+                nanobots.coords().filter { it < 0 }.min() `should equal` -160_344_804
+                nanobots.ranges().max() `should equal` 99_248_181
+                nanobots.ranges().min() `should equal` 49_663_605
+            }
+            xit("should find the coord where most nanobots are in range") {
                 nanobots.maxInRange() `should equal` Coord3(12, 12, 12)
             }
         }
     }
 })
+
+private fun List<Nanobot>.coords() = flatMap { nanobot -> listOf(nanobot.coord.x, nanobot.coord.y, nanobot.coord.z) }
+private fun List<Nanobot>.ranges() = map { nanobot -> nanobot.range }
 
 private fun Set<Pair<RangeRegion, Int>?>.compress(): Set<Pair<RangeRegion, Int>?> =
         groupBy { it?.first }
