@@ -271,10 +271,7 @@ class Day23Spec : Spek({
                 nanobots.maxInRange() `should equal` Coord3(12, 12, 12)
             }
             it("should find all regions to combine to get the best region") {
-                println(nanobots.rangeRegions().overlappingRegionsCount().maxBy { it.second })
-                println(nanobots.rangeRegions().overlappingRegions().map { it.second.size }.toList())
-                println(nanobots.rangeRegions().overlappingRegions().maxBy { it.second.size })
-                nanobots.rangeRegions().overlappingRegions().maxBy { it.second.size }!!.second.size `should equal` 6
+                nanobots.rangeRegions().overlappingRegions().maxBy { it.second.size }!!.second.size `should equal` 5
             }
             //it("should scale")
         }
