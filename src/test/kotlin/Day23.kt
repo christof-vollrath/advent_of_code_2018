@@ -275,7 +275,13 @@ class Day23Spec : Spek({
                 }
             }
             on("guess overlapping regions") {
-                val overlappingRegions = regions.guessOverlappingRegions()
+                val overlappingRegions = regions.guessOverlappingRegions(51)
+                it("should have guessed the overlapping region") {
+                    overlappingRegions.first() `should equal` setOf(
+                            RangeRegion(topLeftFront=Coord3(x=8, y=10, z=10), bottomRightBack=Coord3(x=12, y=14, z=14)),
+                            RangeRegion(topLeftFront=Coord3(x=-150, y=-150, z=-150), bottomRightBack=Coord3(x=250, y=250, z=250))
+                    )
+                }
             }
         }
         given("example") {
@@ -297,6 +303,9 @@ class Day23Spec : Spek({
             it("should find all regions to combine to get the best region") {
                 nanobots.rangeRegions().overlappingRegions().maxBy { it.second.size }!!.second.size `should equal` 5
             }
+            it("should find the coord where most nanobots are in range in optimized way by first guessing interesting regions") {
+                nanobots.maxInRangeOptimized() `should equal` Coord3(12, 12, 12)
+            }
         }
         given("exercise") {
             val inputString = readResource("day23Input.txt")
@@ -315,12 +324,44 @@ class Day23Spec : Spek({
             it("should throw an illegal argument exception, because not all regions in the exercise overlap") {
                 { nanobots.maxInRangeOverlappingAll() }  `should throw`  IllegalArgumentException::class
             }
+            it("should find the coord where most nanobots are in range by first guessing") {
+                println(nanobots.rangeRegions().guessOverlappingRegions(101).maxBy { it.size }!!.size)
+                //nanobots.maxInRangeOptimized() `should equal` Coord3(12, 12, 12)
+            }
         }
     }
 })
 
-private fun List<RangeRegion>.guessOverlappingRegions(): List<Set<RangeRegion>> {
-     return TODO()
+private fun List<RangeRegion>.guessOverlappingRegions(gridSize: Int): List<Set<RangeRegion>> {
+    val grid = Array(gridSize) {
+        Array(gridSize) {
+            Array(gridSize) { mutableSetOf<RangeRegion>() }
+        }
+    }
+    val offsetAndScale = offsetAndScale((gridSize-1).toDouble())
+    map { region ->
+        region.offsetAndScale(offsetAndScale)
+    }
+    // Fill grid with all regions
+    forEach { region ->
+        val scaledRegion = region.offsetAndScale(offsetAndScale)
+        (scaledRegion.topLeftFront.x..scaledRegion.bottomRightBack.x).map { x ->
+            (scaledRegion.topLeftFront.y..scaledRegion.bottomRightBack.y).map { y ->
+                (scaledRegion.topLeftFront.z..scaledRegion.bottomRightBack.y).map { z ->
+                    grid[x][y][z].add(region)
+                }
+            }
+        }
+    }
+    return sequence {
+        grid.forEach { column ->
+            column.forEach { row ->
+                row.forEach { cell ->
+                    if (cell.isNotEmpty()) yield (cell)
+                }
+            }
+        }
+    }.sortedByDescending { it.size }.toList()
 }
 
 private fun List<RangeRegion>.offsetAndScale(factor: Double): Pair<Coord3, Scale3> {
@@ -374,6 +415,7 @@ fun List<Nanobot>.inRangeOf(nanobot: Nanobot) = filter { (coord, _) -> coord man
 fun List<Nanobot>.strongest() = maxBy { it.range }
 fun List<Nanobot>.maxInRange(): Coord3 = rangeRegions().overlappingRegionsCount().selectBestRegion().selectCoord()
 fun List<Nanobot>.maxInRangeOverlappingAll(): Coord3 = rangeRegions().overlapAllRegions().selectCoord()
+fun List<Nanobot>.maxInRangeOptimized(): Coord3 = rangeRegions().guessOverlappingRegions(101).maxBy { it.size }!!.toList().overlapAllRegions().selectCoord()
 fun List<Nanobot>.rangeRegions()  = map { nanobot ->
     val coord = nanobot.coord
     val range = nanobot.range
