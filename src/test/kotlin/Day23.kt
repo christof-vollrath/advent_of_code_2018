@@ -325,8 +325,13 @@ class Day23Spec : Spek({
                 { nanobots.maxInRangeOverlappingAll() }  `should throw`  IllegalArgumentException::class
             }
             it("should find the coord where most nanobots are in range by first guessing") {
-                println(nanobots.rangeRegions().guessOverlappingRegions(101).maxBy { it.size }!!.size)
-                //nanobots.maxInRangeOptimized() `should equal` Coord3(12, 12, 12)
+                val guess1 = nanobots.rangeRegions().guessOverlappingRegions(51).maxBy { it.size }!!
+                println("size after guess 1 = ${guess1.size}")
+                val guess2 = guess1.toList().guessOverlappingRegions(51).maxBy { it.size }!!
+                println("size after guess 2 = ${guess2.size}")
+                val result = guess2.toList().overlapAllRegions().selectCoord()
+                println(result)
+                println(Coord3(0, 0, 0) manhattanDistance result)
             }
         }
     }
@@ -446,7 +451,9 @@ fun List<RangeRegion>.overlappingRegions(): Sequence<Pair<RangeRegion, Set<Range
 fun List<RangeRegion>.overlapAllRegions(): RangeRegion {
     val firstRegion = first()
     val nextRegions = drop(1)
-    return nextRegions.fold(firstRegion) { res: RangeRegion, next: RangeRegion -> res.overlap(next) ?: throw java.lang.IllegalArgumentException("no overlap for $next") }
+    return nextRegions.fold(firstRegion) { res: RangeRegion, next: RangeRegion ->
+        res.overlap(next) ?: res
+    }
 }
 
 fun Pair<RangeRegion, Int>.overlap(with: Pair<RangeRegion, Int>): Pair<RangeRegion, Int>? {
@@ -474,7 +481,7 @@ fun RangeRegion.overlap(with: RangeRegion): RangeRegion? {
 fun Sequence<Pair<RangeRegion, Int>>.selectBestRegion() = maxBy { it.second }!!.first
 
 data class RangeRegion(val topLeftFront: Coord3, val bottomRightBack: Coord3) {
-    fun selectCoord() = Coord3(12, 12, 12)
+    fun selectCoord() = topLeftFront
     fun offsetAndScale(offsetAndScale: Pair<Coord3, Scale3>): RangeRegion {
         fun calculateUp(coord: Int, offset: Int, scale: Double) = floor((coord + offset) * scale).toInt()
         fun calculateDown(coord: Int, offset: Int, scale: Double) = ceil((coord + offset) * scale).toInt()
