@@ -9,6 +9,8 @@ import java.lang.Integer.max
 import java.lang.Integer.min
 import org.jetbrains.spek.data_driven.on as onData
 import kotlin.math.absoluteValue
+import kotlin.math.ceil
+import kotlin.math.floor
 
 /*
 --- Day 23: Experimental Emergency Teleportation ---
@@ -253,7 +255,29 @@ class Day23Spec : Spek({
                     }
                 }
             }
-         }
+        }
+        describe("scale") {
+            val input = """
+                pos=<10,12,12>, r=2
+                pos=<50,50,50>, r=200
+            """.trimIndent()
+            val regions = parseNanobots(input).rangeRegions()
+            on("calculate scale and offset") {
+                val offsetAndScale = regions.offsetAndScale(100.0)
+                it("should have calculated correct scale and offset") {
+                    offsetAndScale `should equal` (Coord3(150, 150, 150) to Scale3(0.25, 0.25, 0.25))
+                }
+                it("offset and scale") {
+                    regions.map { it.offsetAndScale(offsetAndScale) } `should equal` listOf(
+                            RangeRegion(topLeftFront=Coord3(x=40, y=40, z=40), bottomRightBack=Coord3(x=40, y=41, z=41)),
+                            RangeRegion(topLeftFront=Coord3(x=0, y=0, z=0), bottomRightBack=Coord3(x=100, y=100, z=100))
+                    )
+                }
+            }
+            on("guess overlapping regions") {
+                val overlappingRegions = regions.guessOverlappingRegions()
+            }
+        }
         given("example") {
             val input = """
                 pos=<10,12,12>, r=2
@@ -273,7 +297,6 @@ class Day23Spec : Spek({
             it("should find all regions to combine to get the best region") {
                 nanobots.rangeRegions().overlappingRegions().maxBy { it.second.size }!!.second.size `should equal` 5
             }
-            //it("should scale")
         }
         given("exercise") {
             val inputString = readResource("day23Input.txt")
@@ -295,6 +318,26 @@ class Day23Spec : Spek({
         }
     }
 })
+
+private fun List<RangeRegion>.guessOverlappingRegions(): List<Set<RangeRegion>> {
+     return TODO()
+}
+
+private fun List<RangeRegion>.offsetAndScale(factor: Double): Pair<Coord3, Scale3> {
+    val maxX = map { it.bottomRightBack.x }.max()!!
+    val maxY = map { it.bottomRightBack.y }.max()!!
+    val maxZ = map { it.bottomRightBack.z }.max()!!
+    val minX = map { it.topLeftFront.x }.min()!!
+    val minY = map { it.topLeftFront.y }.min()!!
+    val minZ = map { it.topLeftFront.z }.min()!!
+    val offsetX = -minX
+    val offsetY = -minY
+    val offsetZ = -minZ
+    val scaleX = factor / (maxX - minX)
+    val scaleY = factor / (maxY - minY)
+    val scaleZ = factor / (maxZ - minZ)
+    return Coord3(offsetX, offsetY, offsetZ) to Scale3(scaleX, scaleY, scaleZ)
+}
 
 private fun List<Nanobot>.coords() = flatMap { nanobot -> listOf(nanobot.coord.x, nanobot.coord.y, nanobot.coord.z) }
 private fun List<Nanobot>.ranges() = map { nanobot -> nanobot.range }
@@ -390,6 +433,15 @@ fun Sequence<Pair<RangeRegion, Int>>.selectBestRegion() = maxBy { it.second }!!.
 
 data class RangeRegion(val topLeftFront: Coord3, val bottomRightBack: Coord3) {
     fun selectCoord() = Coord3(12, 12, 12)
+    fun offsetAndScale(offsetAndScale: Pair<Coord3, Scale3>): RangeRegion {
+        fun calculateUp(coord: Int, offset: Int, scale: Double) = floor((coord + offset) * scale).toInt()
+        fun calculateDown(coord: Int, offset: Int, scale: Double) = ceil((coord + offset) * scale).toInt()
+        val offset = offsetAndScale.first
+        val scale = offsetAndScale.second
+        return RangeRegion(Coord3(calculateDown(topLeftFront.x, offset.x, scale.x), calculateDown(topLeftFront.y, offset.y, scale.y), calculateDown(topLeftFront.z, offset.z, scale.z)),
+                Coord3(calculateUp(bottomRightBack.x, offset.x, scale.x), calculateUp(bottomRightBack.y, offset.y, scale.y), calculateUp(bottomRightBack.z, offset.z, scale.z))
+                )
+    }
 }
 
 fun parseNanobots(input: String) = input.split("\n").map { parseNanobot(it) }
