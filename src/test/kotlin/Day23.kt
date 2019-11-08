@@ -1,7 +1,6 @@
 import org.amshove.kluent.`should equal`
 import org.amshove.kluent.`should throw`
 import org.amshove.kluent.shouldContainSame
-import org.amshove.kluent.shouldThrow
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.*
 import org.jetbrains.spek.data_driven.data
@@ -294,17 +293,14 @@ class Day23Spec : Spek({
                 pos=<10,10,10>, r=5
             """.trimIndent()
             val nanobots = parseNanobots(input)
-            it("should find the resulting coordinate by overlapping all regions - but this only works only with the exercise data") {
-                nanobots.maxInRangeOverlappingAll()  `should equal`  Coord3(12, 12, 12)
-            }
             it("should find the coord where most nanobots are in range") {
                 nanobots.maxInRange() `should equal` Coord3(12, 12, 12)
             }
+            it("should find the coord where most nanobots are in range (version 2)") {
+                nanobots.maxInRange2() `should equal` Coord3(12, 12, 12)
+            }
             it("should find all regions to combine to get the best region") {
                 nanobots.rangeRegions().overlappingRegions().maxBy { it.second.size }!!.second.size `should equal` 5
-            }
-            it("should find the coord where most nanobots are in range in optimized way by first guessing interesting regions") {
-                nanobots.maxInRangeOptimized() `should equal` Coord3(12, 12, 12)
             }
         }
         given("exercise") {
@@ -321,17 +317,13 @@ class Day23Spec : Spek({
             xit("should find the coord where most nanobots are in range") {
                 nanobots.maxInRange() `should equal` Coord3(12, 12, 12)
             }
+            xit("should find the coord where most nanobots are in range (version 2") {
+                val result = nanobots.maxInRange2()
+                result `should equal` Coord3(x=121751563, y=45478419, z=81689284)
+                println(Coord3(0, 0, 0) manhattanDistance  result)
+            }
             it("should throw an illegal argument exception, because not all regions in the exercise overlap") {
                 { nanobots.maxInRangeOverlappingAll() }  `should throw`  IllegalArgumentException::class
-            }
-            it("should find the coord where most nanobots are in range by first guessing") {
-                val guess1 = nanobots.rangeRegions().guessOverlappingRegions(51).maxBy { it.size }!!
-                println("size after guess 1 = ${guess1.size}")
-                val guess2 = guess1.toList().guessOverlappingRegions(51).maxBy { it.size }!!
-                println("size after guess 2 = ${guess2.size}")
-                val result = guess2.toList().overlapAllRegions().selectCoord()
-                println(result)
-                println(Coord3(0, 0, 0) manhattanDistance result)
             }
         }
     }
@@ -417,10 +409,12 @@ fun <E, M> List<E>.allSubListsAsSequence(merge: (M?, E?) -> M?): Sequence<M?> =
         }
 
 fun List<Nanobot>.inRangeOf(nanobot: Nanobot) = filter { (coord, _) -> coord manhattanDistance nanobot.coord <= nanobot.range}
+fun List<Nanobot>.inRangeOf(c: Coord3) = filter { (coord, range) -> coord manhattanDistance c <= range}  // TODO maybe only one inRangeOf needed
 fun List<Nanobot>.strongest() = maxBy { it.range }
-fun List<Nanobot>.maxInRange(): Coord3 = rangeRegions().overlappingRegionsCount().selectBestRegion().selectCoord()
-fun List<Nanobot>.maxInRangeOverlappingAll(): Coord3 = rangeRegions().overlapAllRegions().selectCoord()
-fun List<Nanobot>.maxInRangeOptimized(): Coord3 = rangeRegions().guessOverlappingRegions(101).maxBy { it.size }!!.toList().overlapAllRegions().selectCoord()
+fun List<Nanobot>.maxInRange(): Coord3 = rangeRegions().overlappingRegionsCount().selectBestRegion().selectCoord(this, simplify = false)
+fun List<Nanobot>.maxInRange2(): Coord3 = rangeRegions().overlappingRegionsCount2().selectBestRegion().selectCoord(this, simplify = false)
+fun List<Nanobot>.maxInRangeOverlappingAll(): Coord3 = rangeRegions().overlapAllRegions().selectCoord(this)
+fun List<Nanobot>.maxInRangeOptimized(): Coord3 = rangeRegions().guessOverlappingRegions(101).maxBy { it.size }!!.toList().overlapAllRegions().selectCoord(this)
 fun List<Nanobot>.rangeRegions()  = map { nanobot ->
     val coord = nanobot.coord
     val range = nanobot.range
@@ -448,12 +442,38 @@ fun List<RangeRegion>.overlappingRegions(): Sequence<Pair<RangeRegion, Set<Range
     return allSubListsAsSequence(::mergeRegionWithRegions).filterNotNull()
 }
 
+fun List<RangeRegion>.overlappingRegionsCount2(nested: Boolean = true): Set<Pair<RangeRegion, Int>> {
+    fun MutableMap<RangeRegion, Int>.addIfBetter(region: RangeRegion, nr: Int) {
+        val existing = get(region)
+        if (existing == null || existing > nr) put(region, nr)
+    }
+    var resultMap = mutableMapOf<RangeRegion, Int>()
+    var i = 0;
+    sortedBy { it.topLeftFront.x }
+    .forEach { region ->
+        i++; println(i)
+        val currentRegions = resultMap.entries
+        println("currentRegions.size = ${currentRegions.size}")
+        val newRegions = sequence {
+            yield(region to 1)
+            currentRegions.forEach { next ->
+                val overlap = region.overlap(next.key)
+                if (overlap != null) yield(overlap to next.value + 1)
+            }
+        }.toList()
+        println("newRegions.size = ${newRegions.size}")
+        if (nested) resultMap = mutableMapOf<RangeRegion, Int>() // Reset map, forget older
+        newRegions.forEach {
+            resultMap.addIfBetter(it.first, it.second)
+        }
+    }
+    return resultMap.entries.map { entry -> entry.key to entry.value }.toSet()
+}
+
 fun List<RangeRegion>.overlapAllRegions(): RangeRegion {
     val firstRegion = first()
     val nextRegions = drop(1)
-    return nextRegions.fold(firstRegion) { res: RangeRegion, next: RangeRegion ->
-        res.overlap(next) ?: res
-    }
+    return nextRegions.fold(firstRegion) { res: RangeRegion, next: RangeRegion -> res.overlap(next) ?: throw java.lang.IllegalArgumentException("no overlap for $next") }
 }
 
 fun Pair<RangeRegion, Int>.overlap(with: Pair<RangeRegion, Int>): Pair<RangeRegion, Int>? {
@@ -479,9 +499,26 @@ fun RangeRegion.overlap(with: RangeRegion): RangeRegion? {
     else RangeRegion(topLeftFront, bottomRightBack)
 }
 fun Sequence<Pair<RangeRegion, Int>>.selectBestRegion() = maxBy { it.second }!!.first
+fun Set<Pair<RangeRegion, Int>>.selectBestRegion() = maxBy { it.second }!!.first
 
 data class RangeRegion(val topLeftFront: Coord3, val bottomRightBack: Coord3) {
-    fun selectCoord() = topLeftFront
+    fun selectCoord(nanobots: List<Nanobot>, simplify: Boolean = true): Coord3 {
+        println(Coord3(0, 0, 0) manhattanDistance topLeftFront)
+        println(Coord3(0, 0, 0) manhattanDistance bottomRightBack)
+        if (simplify) return topLeftFront
+        else {
+            val coords = (topLeftFront.x..bottomRightBack.x).flatMap { x ->
+                (topLeftFront.y..bottomRightBack.y).flatMap { y ->
+                    (topLeftFront.z..bottomRightBack.y).map { z ->
+                        val coord = Coord3(x, y, z)
+                        coord to nanobots.inRangeOf(coord).size
+                    }
+                }
+            }
+            println(coords)
+            return coords.maxBy { it.second }!!.first
+        }
+    }
     fun offsetAndScale(offsetAndScale: Pair<Coord3, Scale3>): RangeRegion {
         fun calculateUp(coord: Int, offset: Int, scale: Double) = floor((coord + offset) * scale).toInt()
         fun calculateDown(coord: Int, offset: Int, scale: Double) = ceil((coord + offset) * scale).toInt()
