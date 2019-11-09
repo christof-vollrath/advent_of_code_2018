@@ -3,6 +3,8 @@ import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.it
 import org.jetbrains.spek.api.dsl.on
+import org.jetbrains.spek.data_driven.data
+import org.jetbrains.spek.data_driven.on as onData
 
 /*
 
@@ -107,6 +109,7 @@ Infection group 2 attacks defending group 2, killing 84 units
 Immune System group 2 attacks defending group 1, killing 4 units
 Immune System group 1 attacks defending group 2, killing 51 units
 Infection group 1 attacks defending group 1, killing 17 units
+
 Immune System:
 Group 2 contains 905 units
 Infection:
@@ -204,39 +207,94 @@ You scan the reindeer's condition (your puzzle input); the white-bearded man loo
 class Day24Spec : Spek({
 
     describe("part 1") {
-        describe("immune system") {
-            on("create an immune system army") {
-                val immuneSystem = Army(
+        describe("example") {
+            val immuneSystem = Army(
                     Group(units = 17,
                             hitPoints = 5390,
                             weaknesses = setOf(AttackType.RADIATION, AttackType.BLUDGEONING),
                             attackDamage = 4507, attackType = AttackType.FIRE,
-                            initiative = 2,
-                            immunities = setOf(AttackType.FIRE)
+                            initiative = 2
                     ),
                     Group(units = 989,
-                        hitPoints = 1274,
-                        immunities = setOf(AttackType.FIRE),
-                        weaknesses = setOf(AttackType.BLUDGEONING),
-                        attackDamage = 25, attackType = AttackType.SLASHING,
-                        initiative = 3
+                            hitPoints = 1274,
+                            immunities = setOf(AttackType.FIRE),
+                            weaknesses = setOf(AttackType.BLUDGEONING, AttackType.SLASHING),
+                            attackDamage = 25, attackType = AttackType.SLASHING,
+                            initiative = 3
                     )
+            )
+            val infection = Army(
+                    Group(units = 801,
+                            hitPoints = 4706,
+                            weaknesses = setOf(AttackType.RADIATION),
+                            attackDamage = 116, attackType = AttackType.BLUDGEONING,
+                            initiative = 1
+                    ),
+                    Group(units = 4485,
+                            hitPoints = 2961,
+                            immunities = setOf(AttackType.RADIATION),
+                            weaknesses = setOf(AttackType.FIRE, AttackType.COLD),
+                            attackDamage = 12, attackType = AttackType.SLASHING,
+                            initiative = 4
+                    )
+            )
+            it("should be created correctly") {
+                immuneSystem.groups.size `should equal` 2
+                with(immuneSystem.groups[1]) {
+                    units `should equal` 989
+                    hitPoints `should equal` 1274
+                    immunities `should equal` setOf(AttackType.FIRE)
+                    weaknesses `should equal` setOf(AttackType.BLUDGEONING, AttackType.SLASHING)
+                    attackDamage `should equal` 25
+                    attackType `should equal` AttackType.SLASHING
+                }
+            }
+            it("should have the right effective power") {
+                immuneSystem.groups[0].effectivePower `should equal` 76619
+                immuneSystem.groups[1].effectivePower `should equal` 24725
+            }
+            describe("calculate damage") {
+                val testData = arrayOf(
+                        data(infection.groups[0], immuneSystem.groups[0], 185832),
+                        data(infection.groups[0], immuneSystem.groups[1], 185832),
+                        data(infection.groups[1], immuneSystem.groups[0], 53820),
+                        data(infection.groups[1], immuneSystem.groups[1], 107640),
+                        data(immuneSystem.groups[0], infection.groups[0], 76619),
+                        data(immuneSystem.groups[0], infection.groups[1], 153238),
+                        data(immuneSystem.groups[1], infection.groups[0], 24725),
+                        data(immuneSystem.groups[1], infection.groups[1], 24725)
                 )
-                it("should be created correctly") {
-                    immuneSystem.groups.size `should equal` 2
-                    with(immuneSystem.groups[1]) {
-                        units `should equal` 989
-                        hitPoints `should equal` 1274
-                        immunities `should equal` setOf(AttackType.FIRE)
-                        weaknesses `should equal` setOf(AttackType.BLUDGEONING)
-                        attackDamage `should equal` 25
-                        attackType `should equal` AttackType.SLASHING
+
+                onData("attacking %s attacked %s", with = *testData) { attacking, attacked, expected ->
+                    val result = attacking.calculateDamage(attacked)
+                    it("should return $expected") {
+                        result `should equal` expected
                     }
+                }
+            }
+            on("fight") {
+                val (immuneSystemAfterFight, infectionAfterFight) = fight(immuneSystem, infection)
+                it("should have the expected result") {
+                    immuneSystemAfterFight.groups.map { it.units } `should equal` listOf(905)
+                    infectionAfterFight.groups.map { it.units } `should equal` listOf(797, 4434)
                 }
             }
         }
     }
 })
+
+fun fight(immuneSystem: Army, infection: Army): Pair<Army, Army> {
+    val immuneSystemAfterFight = immuneSystem.copy(groups = listOf(
+            immuneSystem.groups[1].copy(units = 905)
+        )
+    )
+    val infectionAfterFight = infection.copy(groups = listOf(
+            infection.groups[0].copy(units = 797),
+            infection.groups[1].copy(units = 4434)
+        )
+    )
+    return Pair(immuneSystemAfterFight, infectionAfterFight)
+}
 
 data class Army(val groups: List<Group>) {
     constructor(vararg groups: Group) : this(groups.toList())
@@ -244,12 +302,22 @@ data class Army(val groups: List<Group>) {
 
 data class Group(val units: Int,
                  val hitPoints: Int,
-                 val immunities: Set<AttackType>,
-                 val weaknesses: Set<AttackType>,
+                 val immunities: Set<AttackType> = emptySet(),
+                 val weaknesses: Set<AttackType> = emptySet(),
                  val attackDamage: Int,
                  val attackType: AttackType,
-                 val initiative: Int)
+                 val initiative: Int) {
+    fun calculateDamage(group: Group): Int =
+        when (attackType) {
+            in group.weaknesses -> effectivePower * 2
+            in group.immunities -> 0
+            else -> effectivePower
+        }
+
+    val effectivePower
+        get() = units * attackDamage
+}
 
 enum class AttackType {
-    RADIATION, BLUDGEONING, FIRE, SLASHING
+    RADIATION, BLUDGEONING, FIRE, SLASHING, COLD
 }
