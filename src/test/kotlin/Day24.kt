@@ -1,32 +1,76 @@
+import org.amshove.kluent.`should equal`
+import org.jetbrains.spek.api.Spek
+import org.jetbrains.spek.api.dsl.describe
+import org.jetbrains.spek.api.dsl.it
+import org.jetbrains.spek.api.dsl.on
+
 /*
+
 --- Day 24: Immune System Simulator 20XX ---
-After a weird buzzing noise, you appear back at the man's cottage. He seems relieved to see his friend, but quickly notices that the little reindeer caught some kind of cold while out exploring.
+
+After a weird buzzing noise, you appear back at the man's cottage.
+He seems relieved to see his friend, but quickly notices that the little reindeer caught some kind of cold
+while out exploring.
 
 The portly man explains that this reindeer's immune system isn't similar to regular reindeer immune systems:
 
-The immune system and the infection each have an army made up of several groups; each group consists of one or more identical units. The armies repeatedly fight until only one army has units remaining.
+The immune system and the infection each have an army made up of several groups;
+each group consists of one or more identical units.
+The armies repeatedly fight until only one army has units remaining.
 
-Units within a group all have the same hit points (amount of damage a unit can take before it is destroyed), attack damage (the amount of damage each unit deals), an attack type, an initiative (higher initiative units attack first and win ties), and sometimes weaknesses or immunities. Here is an example group:
+Units within a group all have the same hit points (amount of damage a unit can take before it is destroyed),
+attack damage (the amount of damage each unit deals), an attack type,
+an initiative (higher initiative units attack first and win ties), and sometimes weaknesses or immunities.
+
+Here is an example group:
 
 18 units each with 729 hit points (weak to fire; immune to cold, slashing)
- with an attack that does 8 radiation damage at initiative 10
-Each group also has an effective power: the number of units in that group multiplied by their attack damage. The above group has an effective power of 18 * 8 = 144. Groups never have zero or negative units; instead, the group is removed from combat.
+with an attack that does 8 radiation damage at initiative 10
+
+Each group also has an effective power: the number of units in that group multiplied by their attack damage.
+The above group has an effective power of 18 * 8 = 144.
+Groups never have zero or negative units; instead, the group is removed from combat.
 
 Each fight consists of two phases: target selection and attacking.
 
-During the target selection phase, each group attempts to choose one target. In decreasing order of effective power, groups choose their targets; in a tie, the group with the higher initiative chooses first. The attacking group chooses to target the group in the enemy army to which it would deal the most damage (after accounting for weaknesses and immunities, but not accounting for whether the defending group has enough units to actually receive all of that damage).
+During the target selection phase, each group attempts to choose one target.
+In decreasing order of effective power, groups choose their targets;
+in a tie, the group with the higher initiative chooses first.
+The attacking group chooses to target the group in the enemy army to which it would deal the most damage
+(after accounting for weaknesses and immunities,
+but not accounting for whether the defending group has enough units to actually receive all of that damage).
 
-If an attacking group is considering two defending groups to which it would deal equal damage, it chooses to target the defending group with the largest effective power; if there is still a tie, it chooses the defending group with the highest initiative. If it cannot deal any defending groups damage, it does not choose a target. Defending groups can only be chosen as a target by one attacking group.
+If an attacking group is considering two defending groups to which it would deal equal damage,
+it chooses to target the defending group with the largest effective power;
+if there is still a tie, it chooses the defending group with the highest initiative.
 
-At the end of the target selection phase, each group has selected zero or one groups to attack, and each group is being attacked by zero or one groups.
+If it cannot deal any defending groups damage, it does not choose a target.
+Defending groups can only be chosen as a target by one attacking group.
 
-During the attacking phase, each group deals damage to the target it selected, if any. Groups attack in decreasing order of initiative, regardless of whether they are part of the infection or the immune system. (If a group contains no units, it cannot attack.)
+At the end of the target selection phase, each group has selected zero or one groups to attack,
+and each group is being attacked by zero or one groups.
 
-The damage an attacking group deals to a defending group depends on the attacking group's attack type and the defending group's immunities and weaknesses. By default, an attacking group would deal damage equal to its effective power to the defending group. However, if the defending group is immune to the attacking group's attack type, the defending group instead takes no damage; if the defending group is weak to the attacking group's attack type, the defending group instead takes double damage.
+During the attacking phase, each group deals damage to the target it selected, if any.
+Groups attack in decreasing order of initiative,
+regardless of whether they are part of the infection or the immune system.
+(If a group contains no units, it cannot attack.)
 
-The defending group only loses whole units from damage; damage is always dealt in such a way that it kills the most units possible, and any remaining damage to a unit that does not immediately kill it is ignored. For example, if a defending group contains 10 units with 10 hit points each and receives 75 damage, it loses exactly 7 units and is left with 3 units at full health.
+The damage an attacking group deals to a defending group depends on the attacking group's attack type
+and the defending group's immunities and weaknesses.
+By default, an attacking group would deal damage equal to its effective power to the defending group.
+However, if the defending group is immune to the attacking group's attack type,
+the defending group instead takes no damage;
+if the defending group is weak to the attacking group's attack type, the defending group instead takes double damage.
 
-After the fight is over, if both armies still contain units, a new fight begins; combat only ends once one army has lost all of its units.
+The defending group only loses whole units from damage;
+damage is always dealt in such a way that it kills the most units possible,
+and any remaining damage to a unit that does not immediately kill it is ignored.
+
+For example, if a defending group contains 10 units with 10 hit points each and receives 75 damage,
+it loses exactly 7 units and is left with 3 units at full health.
+
+After the fight is over, if both armies still contain units, a new fight begins;
+combat only ends once one army has lost all of its units.
 
 For example, consider the following armies:
 
@@ -41,7 +85,9 @@ Infection:
  that does 116 bludgeoning damage at initiative 1
 4485 units each with 2961 hit points (immune to radiation; weak to fire,
  cold) with an attack that does 12 slashing damage at initiative 4
-If these armies were to enter combat, the following fights, including details during the target selection and attacking phases, would take place:
+
+If these armies were to enter combat, the following fights,
+including details during the target selection and attacking phases, would take place:
 
 Immune System:
 Group 1 contains 17 units
@@ -154,3 +200,56 @@ In the example above, the winning army ends up with 782 + 4434 = 5216 units.
 
 You scan the reindeer's condition (your puzzle input); the white-bearded man looks nervous. As it stands now, how many units would the winning army have?
  */
+
+class Day24Spec : Spek({
+
+    describe("part 1") {
+        describe("immune system") {
+            on("create an immune system army") {
+                val immuneSystem = Army(
+                    Group(units = 17,
+                            hitPoints = 5390,
+                            weaknesses = setOf(AttackType.RADIATION, AttackType.BLUDGEONING),
+                            attackDamage = 4507, attackType = AttackType.FIRE,
+                            initiative = 2,
+                            immunities = setOf(AttackType.FIRE)
+                    ),
+                    Group(units = 989,
+                        hitPoints = 1274,
+                        immunities = setOf(AttackType.FIRE),
+                        weaknesses = setOf(AttackType.BLUDGEONING),
+                        attackDamage = 25, attackType = AttackType.SLASHING,
+                        initiative = 3
+                    )
+                )
+                it("should be created correctly") {
+                    immuneSystem.groups.size `should equal` 2
+                    with(immuneSystem.groups[1]) {
+                        units `should equal` 989
+                        hitPoints `should equal` 1274
+                        immunities `should equal` setOf(AttackType.FIRE)
+                        weaknesses `should equal` setOf(AttackType.BLUDGEONING)
+                        attackDamage `should equal` 25
+                        attackType `should equal` AttackType.SLASHING
+                    }
+                }
+            }
+        }
+    }
+})
+
+data class Army(val groups: List<Group>) {
+    constructor(vararg groups: Group) : this(groups.toList())
+}
+
+data class Group(val units: Int,
+                 val hitPoints: Int,
+                 val immunities: Set<AttackType>,
+                 val weaknesses: Set<AttackType>,
+                 val attackDamage: Int,
+                 val attackType: AttackType,
+                 val initiative: Int)
+
+enum class AttackType {
+    RADIATION, BLUDGEONING, FIRE, SLASHING
+}
