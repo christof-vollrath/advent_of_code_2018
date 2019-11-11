@@ -7,7 +7,6 @@ import org.jetbrains.spek.data_driven.data
 import org.jetbrains.spek.data_driven.on as onData
 
 /*
-
 --- Day 24: Immune System Simulator 20XX ---
 
 After a weird buzzing noise, you appear back at the man's cottage.
@@ -199,16 +198,19 @@ No groups remain.
 Infection:
 Group 1 contains 782 units
 Group 2 contains 4434 units
+
 In the example above, the winning army ends up with 782 + 4434 = 5216 units.
 
-You scan the reindeer's condition (your puzzle input); the white-bearded man looks nervous. As it stands now, how many units would the winning army have?
+You scan the reindeer's condition (your puzzle input); the white-bearded man looks nervous.
+As it stands now, how many units would the winning army have?
+
  */
 
 class Day24Spec : Spek({
 
     describe("part 1") {
         describe("example") {
-            val immuneSystem = Army(
+            val immuneSystem = ImmuneSystemArmy(
                     Group(units = 17,
                             hitPoints = 5390,
                             weaknesses = setOf(AttackType.RADIATION, AttackType.BLUDGEONING),
@@ -223,7 +225,7 @@ class Day24Spec : Spek({
                             initiative = 3
                     )
             )
-            val infection = Army(
+            val infection = InfectionArmy(
                     Group(units = 801,
                             hitPoints = 4706,
                             weaknesses = setOf(AttackType.RADIATION),
@@ -262,13 +264,40 @@ class Day24Spec : Spek({
                         data(immuneSystem.groups[0], infection.groups[0], 76619),
                         data(immuneSystem.groups[0], infection.groups[1], 153238),
                         data(immuneSystem.groups[1], infection.groups[0], 24725),
-                        data(immuneSystem.groups[1], infection.groups[1], 24725)
+                        data(immuneSystem.groups[1], infection.groups[1], 24725),
+                        data(immuneSystem.groups[0], immuneSystem.groups[1], 0)
                 )
 
                 onData("attacking %s attacked %s", with = *testData) { attacking, attacked, expected ->
                     val result = attacking.calculateDamage(attacked)
-                    it("should return $expected") {
+                    it("should calculate damage as $expected") {
                         result `should equal` expected
+                    }
+                }
+            }
+            describe("calculate killing") {
+                val testData = arrayOf(
+                        data(infection.groups[1], immuneSystem.groups[1], 84),
+                        data(immuneSystem.groups[0], infection.groups[1], 51)
+                )
+
+                onData("attacking %s attacked %s", with = *testData) { attacking, attacked, expected ->
+                    val result = attacking.calculateKilling(attacked)
+                    it("should calculate killing as $expected") {
+                        result `should equal` expected
+                    }
+                }
+            }
+            describe("target selection") {
+                on("target selection for infection army and immune system army") {
+                    val targets = targetSelection(infection, immuneSystem)
+                    it("should have found the correct sequence of attacks") {
+                        targets.sortedByDescending { it.first.initiative } `should equal` listOf(
+                                infection.groups[1] to immuneSystem.groups[1],
+                                immuneSystem.groups[1] to infection.groups[0],
+                                immuneSystem.groups[0] to infection.groups[1],
+                                infection.groups[0] to immuneSystem.groups[0]
+                        )
                     }
                 }
             }
@@ -283,7 +312,33 @@ class Day24Spec : Spek({
     }
 })
 
-fun fight(immuneSystem: Army, infection: Army): Pair<Army, Army> {
+fun targetSelection(infectionArmy: InfectionArmy, immuneSystemArmy: ImmuneSystemArmy): List<Pair<Group, Group>> {
+    val infectionGroupsWithTarget= choseTargets(infectionArmy, immuneSystemArmy)
+    val immuneSystemGroupsWithTarget= choseTargets(immuneSystemArmy, infectionArmy)
+    return infectionGroupsWithTarget + immuneSystemGroupsWithTarget
+}
+
+private fun choseTargets(attackerArmy: Army, attackedArmy: Army): List<Pair<Group, Group>> {
+    val targets = attackedArmy.groups.toMutableSet()
+    val attackerSelectionComparator = compareByDescending<Group> { it.effectivePower }.thenByDescending { it.initiative }
+    return attackerArmy.groups.sortedWith(attackerSelectionComparator).mapNotNull { attackerGroup ->
+        val attackedGroup = choseTarget(attackerGroup, targets)
+        if (attackedGroup != null) {
+            targets.remove(attackedGroup)
+            attackerGroup to attackedGroup
+        } else null
+    }
+}
+
+fun choseTarget(attacker: Group, targets: Set<Group>): Group? {
+    val targetsWithDamage = targets.map { it to attacker.calculateDamage(it) }
+    val targetSelectionComparator = compareByDescending<Pair<Group, Int>> { it.second }
+            .thenByDescending { it.first.effectivePower }
+            .thenByDescending { it.first.initiative }
+    return targetsWithDamage.sortedWith(targetSelectionComparator).firstOrNull()?.first
+}
+
+fun fight(immuneSystem: ImmuneSystemArmy, infection: InfectionArmy): Pair<Army, Army> {
     val immuneSystemAfterFight = immuneSystem.copy(groups = listOf(
             immuneSystem.groups[1].copy(units = 905)
         )
@@ -296,7 +351,13 @@ fun fight(immuneSystem: Army, infection: Army): Pair<Army, Army> {
     return Pair(immuneSystemAfterFight, infectionAfterFight)
 }
 
-data class Army(val groups: List<Group>) {
+sealed class Army(open val groups: List<Group>) {
+    constructor(vararg groups: Group) : this(groups.toList())
+}
+data class InfectionArmy(override val groups: List<Group>) : Army(groups){
+    constructor(vararg groups: Group) : this(groups.toList())
+}
+data class ImmuneSystemArmy(override val groups: List<Group>) : Army(groups){
     constructor(vararg groups: Group) : this(groups.toList())
 }
 
@@ -307,12 +368,15 @@ data class Group(val units: Int,
                  val attackDamage: Int,
                  val attackType: AttackType,
                  val initiative: Int) {
-    fun calculateDamage(group: Group): Int =
+    fun calculateDamage(attacked: Group): Int =
         when (attackType) {
-            in group.weaknesses -> effectivePower * 2
-            in group.immunities -> 0
+            in attacked.weaknesses -> effectivePower * 2
+            in attacked.immunities -> 0
             else -> effectivePower
         }
+
+    fun calculateKilling(attacked: Group) = calculateKilling(calculateDamage(attacked), attacked)
+    fun calculateKilling(damage: Int, attacked: Group): Int = damage / attacked.hitPoints
 
     val effectivePower
         get() = units * attackDamage
