@@ -302,10 +302,10 @@ class Day24Spec : Spek({
                 }
             }
             on("fight") {
-                val (immuneSystemAfterFight, infectionAfterFight) = fight(immuneSystem, infection)
+                fight(immuneSystem, infection)
                 it("should have the expected result") {
-                    immuneSystemAfterFight.groups.map { it.units } `should equal` listOf(905)
-                    infectionAfterFight.groups.map { it.units } `should equal` listOf(797, 4434)
+                    immuneSystem.groups.map { it.units } `should equal` listOf(905)
+                    infection.groups.map { it.units } `should equal` listOf(797, 4434)
                 }
             }
         }
@@ -338,30 +338,31 @@ fun choseTarget(attacker: Group, targets: Set<Group>): Group? {
     return targetsWithDamage.sortedWith(targetSelectionComparator).firstOrNull()?.first
 }
 
-fun fight(immuneSystem: ImmuneSystemArmy, infection: InfectionArmy): Pair<Army, Army> {
-    val immuneSystemAfterFight = immuneSystem.copy(groups = listOf(
-            immuneSystem.groups[1].copy(units = 905)
-        )
-    )
-    val infectionAfterFight = infection.copy(groups = listOf(
-            infection.groups[0].copy(units = 797),
-            infection.groups[1].copy(units = 4434)
-        )
-    )
-    return Pair(immuneSystemAfterFight, infectionAfterFight)
+fun fight(immuneSystem: ImmuneSystemArmy, infection: InfectionArmy) {
+    targetSelection(infection, immuneSystem).sortedByDescending { it.first.initiative }.forEach { (attacker, attacked) ->
+        attack(attacker, attacked)
+    }
+    immuneSystem.groups.removeIf { it.units <= 0 }
+    infection.groups.removeIf { it.units <= 0 }
 }
 
-sealed class Army(open val groups: List<Group>) {
-    constructor(vararg groups: Group) : this(groups.toList())
-}
-data class InfectionArmy(override val groups: List<Group>) : Army(groups){
-    constructor(vararg groups: Group) : this(groups.toList())
-}
-data class ImmuneSystemArmy(override val groups: List<Group>) : Army(groups){
-    constructor(vararg groups: Group) : this(groups.toList())
+fun attack(attacker: Group, attacked: Group) {
+    val killings = attacker.calculateKilling(attacked)
+    println("attacker=$attacker\nattacked=$attacked\nkillings=$killings attacked.units=${attacked.units}")
+    attacked.units -= killings
 }
 
-data class Group(val units: Int,
+sealed class Army(open val groups: MutableList<Group>) {
+    constructor(vararg groups: Group) : this(groups.toMutableList())
+}
+data class InfectionArmy(override val groups: MutableList<Group>) : Army(groups){
+    constructor(vararg groups: Group) : this(groups.toMutableList())
+}
+data class ImmuneSystemArmy(override val groups: MutableList<Group>) : Army(groups){
+    constructor(vararg groups: Group) : this(groups.toMutableList())
+}
+
+data class Group(var units: Int,
                  val hitPoints: Int,
                  val immunities: Set<AttackType> = emptySet(),
                  val weaknesses: Set<AttackType> = emptySet(),
