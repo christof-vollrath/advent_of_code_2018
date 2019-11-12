@@ -308,9 +308,21 @@ class Day24Spec : Spek({
                     infection.groups.map { it.units } `should equal` listOf(797, 4434)
                 }
             }
+            //In the example above, the winning army ends up with 782 + 4434 = 5216 units.
+            on("fight until the end") {
+                fightTilTheEnd(immuneSystem, infection)
+                it("should have the expected result") {
+                    immuneSystem.units `should equal` 0
+                    infection.units `should equal` 5216
+                }
+            }
         }
     }
 })
+
+fun fightTilTheEnd(immuneSystem: ImmuneSystemArmy, infection: InfectionArmy) {
+    while(immuneSystem.units > 0 && infection.units > 0) fight(immuneSystem, infection)
+}
 
 fun targetSelection(infectionArmy: InfectionArmy, immuneSystemArmy: ImmuneSystemArmy): List<Pair<Group, Group>> {
     val infectionGroupsWithTarget= choseTargets(infectionArmy, immuneSystemArmy)
@@ -353,6 +365,9 @@ fun attack(attacker: Group, attacked: Group) {
 }
 
 sealed class Army(open val groups: MutableList<Group>) {
+    val units
+        get() = groups.map { it.units }.sum()
+
     constructor(vararg groups: Group) : this(groups.toMutableList())
 }
 data class InfectionArmy(override val groups: MutableList<Group>) : Army(groups){
