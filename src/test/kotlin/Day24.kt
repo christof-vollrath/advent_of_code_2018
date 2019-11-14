@@ -323,31 +323,84 @@ class Day24Spec : Spek({
                 given("a simple input") {
                     val input = "2743 units each with 4149 hit points with an attack that does 13 radiation damage at initiative 14"
                     it("should be parsed correctly") {
-                        parseGroupLine(input) `should equal` Group(units = 2743, hitPoints = 4149, weaknesses= emptySet(), attackDamage = 13, attackType = AttackType.RADIATION, initiative = 14)
+                        parseGroupLine(input) `should equal` Group(units = 2743, hitPoints = 4149, weaknesses= emptySet(), immunities = emptySet(), attackDamage = 13, attackType = AttackType.RADIATION, initiative = 14)
                     }
                 }
                 given("an input with one weakness") {
                     val input = "262 units each with 8499 hit points (weak to cold) with an attack that does 45 cold damage at initiative 6"
                     it("should be parsed correctly") {
-                        parseGroupLine(input) `should equal` Group(units = 262, hitPoints = 8499, weaknesses = setOf(AttackType.COLD), attackDamage = 45, attackType = AttackType.COLD, initiative = 6)
+                        parseGroupLine(input) `should equal` Group(units = 262, hitPoints = 8499, weaknesses = setOf(AttackType.COLD), immunities = emptySet(), attackDamage = 45, attackType = AttackType.COLD, initiative = 6)
                     }
                 }
-                TODO("more weaknesses + immunities")
+                given("an input with two weaknesses") {
+                    val input = "262 units each with 8499 hit points (weak to cold, fire) with an attack that does 45 cold damage at initiative 6"
+                    it("should be parsed correctly") {
+                        parseGroupLine(input) `should equal` Group(units = 262, hitPoints = 8499, weaknesses = setOf(AttackType.COLD, AttackType.FIRE), immunities = emptySet(), attackDamage = 45, attackType = AttackType.COLD, initiative = 6)
+                    }
+                }
+                given("an input with one immunity") {
+                    val input = "262 units each with 8499 hit points (immune to cold) with an attack that does 45 cold damage at initiative 6"
+                    it("should be parsed correctly") {
+                        parseGroupLine(input) `should equal` Group(units = 262, hitPoints = 8499, weaknesses = emptySet(), immunities = setOf(AttackType.COLD), attackDamage = 45, attackType = AttackType.COLD, initiative = 6)
+                    }
+                }
+                given("an input with weaknesses and immunitie") {
+                    val input = "262 units each with 8499 hit points (weak to cold, fire; immune to slashing, radiation) with an attack that does 45 cold damage at initiative 6"
+                    it("should be parsed correctly") {
+                        parseGroupLine(input) `should equal` Group(units = 262, hitPoints = 8499, weaknesses = setOf(AttackType.COLD, AttackType.FIRE), immunities = setOf(AttackType.SLASHING, AttackType.RADIATION), attackDamage = 45, attackType = AttackType.COLD, initiative = 6)
+                    }
+                }
             }
         }
     }
 })
 
 fun parseGroupLine(input: String): Group {
-    val regex = """(\d+) units each with (\d+) hit points( \(weak to ([a-z,; ]+)\))? with an attack that does (\d+) ([a-z]+) damage at initiative (\d+)""".toRegex()
+    val regex = """(\d+) units each with (\d+) hit points( \(([a-z,; ]+)\))? with an attack that does (\d+) ([a-z]+) damage at initiative (\d+)""".toRegex()
     val match = regex.find(input) ?: throw IllegalArgumentException("Can not parse input $input")
     require(match.groupValues.size == 8) { "${match.groupValues.size} elements parsed $input" }
     val values = match.groupValues
     val attackType = AttackType.valueOf(values[6].toUpperCase())
-    val weakString = values[4]
-    val weaknesses = if (weakString.isNotBlank()) setOf(AttackType.valueOf(weakString.toUpperCase())) else emptySet()
-    return Group(units = values[1].toInt(), hitPoints = values[2].toInt(), weaknesses= weaknesses, attackDamage = values[5].toInt(), attackType = attackType, initiative = values[7].toInt())
+    val properties = parseProperties(values[4])
+    return Group(units = values[1].toInt(), hitPoints = values[2].toInt(), weaknesses = properties.first, immunities = properties.second, attackDamage = values[5].toInt(), attackType = attackType, initiative = values[7].toInt())
 }
+
+fun parseProperties(input: String): Pair<Set<AttackType>, Set<AttackType>> {
+    if (input.isNotBlank()) {
+        val weaknessesRegex = """(weak to ([a-z, ]+).*)?""".toRegex()
+        val weaknessesMatch = weaknessesRegex.find(input) ?: throw IllegalArgumentException("Can not parse input $input")
+        val weaknesses = if (weaknessesMatch.groupValues.size == 3) {
+            val weaknessesString = weaknessesMatch.groupValues[2]
+            parseAttackTypes(weaknessesString)
+        } else emptySet()
+        val immunitiesRegex = """(.*immune to ([a-z, ]+))?""".toRegex()
+        val immunitiesMatch = immunitiesRegex.find(input) ?: throw IllegalArgumentException("Can not parse input $input")
+        val immunities = if (immunitiesMatch.groupValues.size == 3) {
+            val immunitiesString = immunitiesMatch.groupValues[2]
+            parseAttackTypes(immunitiesString)
+        } else emptySet()
+        return Pair(weaknesses, immunities)
+    } else return Pair(emptySet(), emptySet())
+}
+
+private fun parseAttackTypes(attackTypesString: String): Set<AttackType> =
+     if (attackTypesString.isNotBlank()) {
+        val attackTypesRegex = """([a-z]+)(, ([a-z]+))*""".trimIndent().toRegex()
+        val match = attackTypesRegex.find(attackTypesString)
+                ?: throw IllegalArgumentException("Can not parse input $attackTypesString")
+        require(match.groupValues.size >= 2) { "Only ${match.groupValues.size} elements parsed $attackTypesString" }
+        val values = match.groupValues
+        values.mapIndexedNotNull() { index, string ->
+            when (index) {
+                0 -> null // [0] entire expression
+                1 -> AttackType.valueOf(string.toUpperCase())
+                2 -> null // all additional weaknesses
+                else -> if (string.isNotBlank()) AttackType.valueOf(string.toUpperCase())
+                else null
+            }
+        }.toSet()
+    } else emptySet()
+
 
 fun fightTilTheEnd(immuneSystem: ImmuneSystemArmy, infection: InfectionArmy) {
     while(immuneSystem.units > 0 && infection.units > 0) fight(immuneSystem, infection)
