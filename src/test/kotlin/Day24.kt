@@ -350,10 +350,53 @@ class Day24Spec : Spek({
                         parseGroupLine(input) `should equal` Group(units = 262, hitPoints = 8499, weaknesses = setOf(AttackType.COLD, AttackType.FIRE), immunities = setOf(AttackType.SLASHING, AttackType.RADIATION), attackDamage = 45, attackType = AttackType.COLD, initiative = 6)
                     }
                 }
+                given("an input with immune system and infection") {
+                    val input = """
+                        Immune System:
+                        2743 units each with 4149 hit points with an attack that does 13 radiation damage at initiative 14
+                        8829 units each with 7036 hit points with an attack that does 7 fire damage at initiative 15
+                        
+                        Infection:
+                        262 units each with 8499 hit points (weak to cold) with an attack that does 45 cold damage at initiative 6
+                        732 units each with 47014 hit points (weak to cold, bludgeoning) with an attack that does 127 bludgeoning damage at initiative 17
+                    """.trimIndent()
+                    it("should be parsed correctly") {
+                        val (immuneSystem, infection) = parseArmies(input)
+                        immuneSystem `should equal` ImmuneSystemArmy(
+                            Group(units = 2743, hitPoints = 4149, attackDamage = 13, attackType = AttackType.RADIATION, initiative = 14),
+                            Group(units = 8829, hitPoints = 7036, attackDamage = 7, attackType = AttackType.FIRE, initiative = 15)
+                        )
+                        infection `should equal` InfectionArmy(
+                                Group(units = 262, hitPoints = 8499, weaknesses = setOf(AttackType.COLD), attackDamage = 45, attackType = AttackType.COLD, initiative = 6),
+                                Group(units = 732, hitPoints = 47014, weaknesses = setOf(AttackType.COLD, AttackType.BLUDGEONING), attackDamage = 127, attackType = AttackType.BLUDGEONING, initiative = 17)
+                        )
+                    }
+                }
             }
         }
     }
 })
+
+fun parseArmies(input: String): Pair<ImmuneSystemArmy, InfectionArmy> {
+    val inputLines = input.split("\n")
+    val immuneSystemLines = mutableListOf<String>()
+    val infectionLines = mutableListOf<String>()
+    var parseImmuneSystem: Boolean? = null
+    inputLines.forEach { line ->
+        when {
+            line.isBlank() -> {} // Ignore
+            line.startsWith("Immune System:") -> parseImmuneSystem = true
+            line.startsWith("Infection:") -> parseImmuneSystem = false
+            else -> if (parseImmuneSystem == null) throw IllegalArgumentException("Input lines without header")
+                    else if (parseImmuneSystem!!) immuneSystemLines += line
+                    else infectionLines += line
+        }
+    }
+    return Pair(
+            ImmuneSystemArmy(*(immuneSystemLines.map { parseGroupLine(it) }.toTypedArray())),
+            InfectionArmy(*(infectionLines.map { parseGroupLine(it) }.toTypedArray()))
+    )
+}
 
 fun parseGroupLine(input: String): Group {
     val regex = """(\d+) units each with (\d+) hit points( \(([a-z,; ]+)\))? with an attack that does (\d+) ([a-z]+) damage at initiative (\d+)""".toRegex()
