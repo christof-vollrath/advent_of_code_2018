@@ -344,15 +344,15 @@ class Day24Spec : Spek({
                     }
                 }
                 given("an input with weaknesses and immunities") {
-                    val input = "262 units each with 8499 hit points (weak to cold, fire; immune to slashing, radiation) with an attack that does 45 cold damage at initiative 6"
+                    val input = "262 units each with 8499 hit points (weak to cold, fire; immune to slashing, radiation, bludgeoning) with an attack that does 45 cold damage at initiative 6"
                     it("should be parsed correctly") {
-                        parseGroupLine(input) `should equal` Group(units = 262, hitPoints = 8499, weaknesses = setOf(AttackType.COLD, AttackType.FIRE), immunities = setOf(AttackType.SLASHING, AttackType.RADIATION), attackDamage = 45, attackType = AttackType.COLD, initiative = 6)
+                        parseGroupLine(input) `should equal` Group(units = 262, hitPoints = 8499, weaknesses = setOf(AttackType.COLD, AttackType.FIRE), immunities = setOf(AttackType.SLASHING, AttackType.RADIATION, AttackType.BLUDGEONING), attackDamage = 45, attackType = AttackType.COLD, initiative = 6)
                     }
                 }
                 given("an input with weaknesses and immunities reversed") {
-                    val input = "262 units each with 8499 hit points (immune to slashing, radiation; weak to cold, fire) with an attack that does 45 cold damage at initiative 6"
+                    val input = "262 units each with 8499 hit points (immune to slashing, radiation, bludgeoning; weak to cold, fire) with an attack that does 45 cold damage at initiative 6"
                     it("should be parsed correctly") {
-                        parseGroupLine(input) `should equal` Group(units = 262, hitPoints = 8499, weaknesses = setOf(AttackType.COLD, AttackType.FIRE), immunities = setOf(AttackType.SLASHING, AttackType.RADIATION), attackDamage = 45, attackType = AttackType.COLD, initiative = 6)
+                        parseGroupLine(input) `should equal` Group(units = 262, hitPoints = 8499, weaknesses = setOf(AttackType.COLD, AttackType.FIRE), immunities = setOf(AttackType.SLASHING, AttackType.RADIATION, AttackType.BLUDGEONING), attackDamage = 45, attackType = AttackType.COLD, initiative = 6)
                     }
                 }
                 given("an input with immune system and infection") {
@@ -414,7 +414,7 @@ class Day24Spec : Spek({
                     fightTilTheEnd(immuneSystem, infection)
                     it("should have the expected result") {
                         immuneSystem.units `should equal` 0
-                        infection.units `should be greater than` 24265
+                        infection.units `should equal` 24318
                     }
                 }
             }
@@ -472,22 +472,9 @@ fun parseProperties(input: String): Pair<Set<AttackType>, Set<AttackType>> {
 }
 
 private fun parseAttackTypes(attackTypesString: String): Set<AttackType> =
-     if (attackTypesString.isNotBlank()) {
-        val attackTypesRegex = """([a-z]+)(, ([a-z]+))*""".trimIndent().toRegex()
-        val match = attackTypesRegex.find(attackTypesString)
-                ?: throw IllegalArgumentException("Can not parse input $attackTypesString")
-        require(match.groupValues.size >= 2) { "Only ${match.groupValues.size} elements parsed $attackTypesString" }
-        val values = match.groupValues
-        values.mapIndexedNotNull() { index, string ->
-            when (index) {
-                0 -> null // [0] entire expression
-                1 -> AttackType.valueOf(string.toUpperCase())
-                2 -> null // all additional weaknesses
-                else -> if (string.isNotBlank()) AttackType.valueOf(string.toUpperCase())
-                else null
-            }
-        }.toSet()
-    } else emptySet()
+    attackTypesString.split(",")
+            .mapNotNull { if (it.isNotBlank()) AttackType.valueOf(it.trim().toUpperCase()) else null }
+            .toSet()
 
 
 fun fightTilTheEnd(immuneSystem: ImmuneSystemArmy, infection: InfectionArmy) {
