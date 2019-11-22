@@ -346,6 +346,149 @@ How many units does the immune system have left after getting the smallest boost
 
  */
 
+fun parseArmies(input: String): Pair<ImmuneSystemArmy, InfectionArmy> {
+    val inputLines = input.split("\n")
+    val immuneSystemLines = mutableListOf<String>()
+    val infectionLines = mutableListOf<String>()
+    var parseImmuneSystem: Boolean? = null
+    inputLines.forEach { line ->
+        when {
+            line.isBlank() -> {} // Ignore
+            line.startsWith("Immune System:") -> parseImmuneSystem = true
+            line.startsWith("Infection:") -> parseImmuneSystem = false
+            else -> if (parseImmuneSystem == null) throw IllegalArgumentException("Input lines without header")
+            else if (parseImmuneSystem!!) immuneSystemLines += line
+            else infectionLines += line
+        }
+    }
+    return Pair(
+            ImmuneSystemArmy(*(immuneSystemLines.map { parseGroupLine(it) }.toTypedArray())),
+            InfectionArmy(*(infectionLines.map { parseGroupLine(it) }.toTypedArray()))
+    )
+}
+
+fun parseGroupLine(input: String): Group {
+    val regex = """(\d+) units each with (\d+) hit points( \(([a-z,; ]+)\))? with an attack that does (\d+) ([a-z]+) damage at initiative (\d+)""".toRegex()
+    val match = regex.find(input) ?: throw IllegalArgumentException("Can not parse input $input")
+    require(match.groupValues.size == 8) { "${match.groupValues.size} elements parsed $input" }
+    val values = match.groupValues
+    val attackType = AttackType.valueOf(values[6].toUpperCase())
+    val properties = parseProperties(values[4])
+    return Group(units = values[1].toInt(), hitPoints = values[2].toInt(), weaknesses = properties.first, immunities = properties.second, attackDamage = values[5].toInt(), attackType = attackType, initiative = values[7].toInt())
+}
+
+fun parseProperties(input: String): Pair<Set<AttackType>, Set<AttackType>> {
+    if (input.isNotBlank()) {
+        val weaknessesRegex = """(.*weak to ([a-z, ]+).*)?""".toRegex()
+        val weaknessesMatch = weaknessesRegex.find(input) ?: throw IllegalArgumentException("Can not parse input $input")
+        val weaknesses = if (weaknessesMatch.groupValues.size == 3) {
+            val weaknessesString = weaknessesMatch.groupValues[2]
+            parseAttackTypes(weaknessesString)
+        } else emptySet()
+        val immunitiesRegex = """(.*immune to ([a-z, ]+).*)?""".toRegex()
+        val immunitiesMatch = immunitiesRegex.find(input) ?: throw IllegalArgumentException("Can not parse input $input")
+        val immunities = if (immunitiesMatch.groupValues.size == 3) {
+            val immunitiesString = immunitiesMatch.groupValues[2]
+            parseAttackTypes(immunitiesString)
+        } else emptySet()
+        return Pair(weaknesses, immunities)
+    } else return Pair(emptySet(), emptySet())
+}
+
+private fun parseAttackTypes(attackTypesString: String): Set<AttackType> =
+        attackTypesString.split(",")
+                .mapNotNull { if (it.isNotBlank()) AttackType.valueOf(it.trim().toUpperCase()) else null }
+                .toSet()
+
+
+fun fightTilTheEnd(immuneSystem: ImmuneSystemArmy, infection: InfectionArmy) {
+    while(immuneSystem.units > 0 && infection.units > 0) {
+        fight(immuneSystem, infection)
+    }
+}
+
+fun targetSelection(infectionArmy: InfectionArmy, immuneSystemArmy: ImmuneSystemArmy): List<Pair<Group, Group>> {
+    val infectionGroupsWithTarget= choseTargets(infectionArmy, immuneSystemArmy)
+    val immuneSystemGroupsWithTarget= choseTargets(immuneSystemArmy, infectionArmy)
+    return infectionGroupsWithTarget + immuneSystemGroupsWithTarget
+}
+
+private fun choseTargets(attackerArmy: Army, attackedArmy: Army): List<Pair<Group, Group>> {
+    val targets = attackedArmy.groups.toMutableSet()
+    val attackerSelectionComparator = compareByDescending<Group> { it.effectivePower }.thenByDescending { it.initiative }
+    return attackerArmy.groups.sortedWith(attackerSelectionComparator).mapNotNull { attackerGroup ->
+        val attackedGroup = choseTarget(attackerGroup, targets)
+        if (attackedGroup != null) {
+            targets.remove(attackedGroup)
+            attackerGroup to attackedGroup
+        } else null
+    }
+}
+
+fun choseTarget(attacker: Group, targets: Set<Group>): Group? {
+    val targetsWithDamage = targets.map { it to attacker.calculateDamage(it) }
+    val targetSelectionComparator = compareByDescending<Pair<Group, Int>> { it.second }
+            .thenByDescending { it.first.effectivePower }
+            .thenByDescending { it.first.initiative }
+    return targetsWithDamage.sortedWith(targetSelectionComparator).firstOrNull()?.first
+}
+
+fun fight(immuneSystem: ImmuneSystemArmy, infection: InfectionArmy) {
+    targetSelection(infection, immuneSystem).sortedByDescending { it.first.initiative }.forEach { (attacker, attacked) ->
+        attack(attacker, attacked)
+    }
+    immuneSystem.groups.removeIf { it.units <= 0 }
+    infection.groups.removeIf { it.units <= 0 }
+}
+
+fun attack(attacker: Group, attacked: Group) {
+    val killings = attacker.calculateKilling(attacked)
+    if (killings > attacked.units) attacked.units = 0
+    else attacked.units -= killings
+}
+
+sealed class Army(open val groups: MutableList<Group>) {
+    val units
+        get() = groups.map { it.units }.sum()
+
+    constructor(vararg groups: Group) : this(groups.toMutableList())
+}
+data class InfectionArmy(override val groups: MutableList<Group>) : Army(groups){
+    constructor(vararg groups: Group) : this(groups.toMutableList())
+}
+data class ImmuneSystemArmy(override val groups: MutableList<Group>) : Army(groups){
+    fun boost(boost: Int) = copy(groups = groups.map {
+        it.copy(attackDamage = it.attackDamage + boost)
+    }.toMutableList())
+
+    constructor(vararg groups: Group) : this(groups.toMutableList())
+}
+
+data class Group(var units: Int,
+                 val hitPoints: Int,
+                 val immunities: Set<AttackType> = emptySet(),
+                 val weaknesses: Set<AttackType> = emptySet(),
+                 val attackDamage: Int,
+                 val attackType: AttackType,
+                 val initiative: Int) {
+    fun calculateDamage(attacked: Group): Int =
+            when (attackType) {
+                in attacked.weaknesses -> effectivePower * 2
+                in attacked.immunities -> 0
+                else -> effectivePower
+            }
+
+    fun calculateKilling(attacked: Group) = calculateKilling(calculateDamage(attacked), attacked)
+    fun calculateKilling(damage: Int, attacked: Group): Int = damage / attacked.hitPoints
+
+    val effectivePower
+        get() = units * attackDamage
+}
+
+enum class AttackType {
+    RADIATION, BLUDGEONING, FIRE, SLASHING, COLD
+}
+
 class Day24Spec : Spek({
 
     describe("part 1") {
@@ -527,10 +670,6 @@ class Day24Spec : Spek({
                         4485 units each with 2961 hit points (immune to radiation; weak to fire, cold) with an attack that does 12 slashing damage at initiative 4 
                     """.trimIndent()
                 val (immuneSystemTest, infectionTest) = parseArmies(input)
-                println("----")
-                println(immuneSystemTest)
-                println(infectionTest)
-                println("----")
                 on("fight until the end") {
                     fightTilTheEnd(immuneSystemTest, infectionTest)
                     it("should have the expected result") {
@@ -544,10 +683,6 @@ class Day24Spec : Spek({
             given("exercise input") {
                 val input = readResource("day24Input.txt")
                 val (immuneSystem, infection) = parseArmies(input)
-                println("----")
-                println(immuneSystem)
-                println(infection)
-                println("----")
                 on("fight until the end") {
                     fightTilTheEnd(immuneSystem, infection)
                     it("should have the expected result") {
@@ -558,141 +693,28 @@ class Day24Spec : Spek({
             }
         }
     }
+    describe("part 2") {
+        describe("example") {
+            val input = """
+                Immune System:
+                17 units each with 5390 hit points (weak to radiation, bludgeoning) with an attack that does 4507 fire damage at initiative 2
+                989 units each with 1274 hit points (immune to fire; weak to bludgeoning, slashing) with an attack that does 25 slashing damage at initiative 3
+                
+                Infection:
+                801 units each with 4706 hit points (weak to radiation) with an attack that does 116 bludgeoning damage at initiative 1
+                4485 units each with 2961 hit points (immune to radiation; weak to fire, cold) with an attack that does 12 slashing damage at initiative 4 
+            """.trimIndent()
+            val (immuneSystem, infection) = parseArmies(input)
+            val boostedImmuneSystem = immuneSystem.boost(1570)
+            on("fight until the end") {
+                fightTilTheEnd(boostedImmuneSystem, infection)
+                it("should have the expected result") {
+                    boostedImmuneSystem.units `should equal` 51
+                    infection.units `should equal` 0
+                }
+            }
+
+        }
+
+    }
 })
-
-fun parseArmies(input: String): Pair<ImmuneSystemArmy, InfectionArmy> {
-    val inputLines = input.split("\n")
-    val immuneSystemLines = mutableListOf<String>()
-    val infectionLines = mutableListOf<String>()
-    var parseImmuneSystem: Boolean? = null
-    inputLines.forEach { line ->
-        when {
-            line.isBlank() -> {} // Ignore
-            line.startsWith("Immune System:") -> parseImmuneSystem = true
-            line.startsWith("Infection:") -> parseImmuneSystem = false
-            else -> if (parseImmuneSystem == null) throw IllegalArgumentException("Input lines without header")
-                    else if (parseImmuneSystem!!) immuneSystemLines += line
-                    else infectionLines += line
-        }
-    }
-    return Pair(
-            ImmuneSystemArmy(*(immuneSystemLines.map { parseGroupLine(it) }.toTypedArray())),
-            InfectionArmy(*(infectionLines.map { parseGroupLine(it) }.toTypedArray()))
-    )
-}
-
-fun parseGroupLine(input: String): Group {
-    val regex = """(\d+) units each with (\d+) hit points( \(([a-z,; ]+)\))? with an attack that does (\d+) ([a-z]+) damage at initiative (\d+)""".toRegex()
-    val match = regex.find(input) ?: throw IllegalArgumentException("Can not parse input $input")
-    require(match.groupValues.size == 8) { "${match.groupValues.size} elements parsed $input" }
-    val values = match.groupValues
-    val attackType = AttackType.valueOf(values[6].toUpperCase())
-    val properties = parseProperties(values[4])
-    return Group(units = values[1].toInt(), hitPoints = values[2].toInt(), weaknesses = properties.first, immunities = properties.second, attackDamage = values[5].toInt(), attackType = attackType, initiative = values[7].toInt())
-}
-
-fun parseProperties(input: String): Pair<Set<AttackType>, Set<AttackType>> {
-    if (input.isNotBlank()) {
-        val weaknessesRegex = """(.*weak to ([a-z, ]+).*)?""".toRegex()
-        val weaknessesMatch = weaknessesRegex.find(input) ?: throw IllegalArgumentException("Can not parse input $input")
-        val weaknesses = if (weaknessesMatch.groupValues.size == 3) {
-            val weaknessesString = weaknessesMatch.groupValues[2]
-            parseAttackTypes(weaknessesString)
-        } else emptySet()
-        val immunitiesRegex = """(.*immune to ([a-z, ]+).*)?""".toRegex()
-        val immunitiesMatch = immunitiesRegex.find(input) ?: throw IllegalArgumentException("Can not parse input $input")
-        val immunities = if (immunitiesMatch.groupValues.size == 3) {
-            val immunitiesString = immunitiesMatch.groupValues[2]
-            parseAttackTypes(immunitiesString)
-        } else emptySet()
-        return Pair(weaknesses, immunities)
-    } else return Pair(emptySet(), emptySet())
-}
-
-private fun parseAttackTypes(attackTypesString: String): Set<AttackType> =
-    attackTypesString.split(",")
-            .mapNotNull { if (it.isNotBlank()) AttackType.valueOf(it.trim().toUpperCase()) else null }
-            .toSet()
-
-
-fun fightTilTheEnd(immuneSystem: ImmuneSystemArmy, infection: InfectionArmy) {
-    while(immuneSystem.units > 0 && infection.units > 0) fight(immuneSystem, infection)
-}
-
-fun targetSelection(infectionArmy: InfectionArmy, immuneSystemArmy: ImmuneSystemArmy): List<Pair<Group, Group>> {
-    val infectionGroupsWithTarget= choseTargets(infectionArmy, immuneSystemArmy)
-    val immuneSystemGroupsWithTarget= choseTargets(immuneSystemArmy, infectionArmy)
-    return infectionGroupsWithTarget + immuneSystemGroupsWithTarget
-}
-
-private fun choseTargets(attackerArmy: Army, attackedArmy: Army): List<Pair<Group, Group>> {
-    val targets = attackedArmy.groups.toMutableSet()
-    val attackerSelectionComparator = compareByDescending<Group> { it.effectivePower }.thenByDescending { it.initiative }
-    return attackerArmy.groups.sortedWith(attackerSelectionComparator).mapNotNull { attackerGroup ->
-        val attackedGroup = choseTarget(attackerGroup, targets)
-        if (attackedGroup != null) {
-            targets.remove(attackedGroup)
-            attackerGroup to attackedGroup
-        } else null
-    }
-}
-
-fun choseTarget(attacker: Group, targets: Set<Group>): Group? {
-    val targetsWithDamage = targets.map { it to attacker.calculateDamage(it) }
-    val targetSelectionComparator = compareByDescending<Pair<Group, Int>> { it.second }
-            .thenByDescending { it.first.effectivePower }
-            .thenByDescending { it.first.initiative }
-    return targetsWithDamage.sortedWith(targetSelectionComparator).firstOrNull()?.first
-}
-
-fun fight(immuneSystem: ImmuneSystemArmy, infection: InfectionArmy) {
-    targetSelection(infection, immuneSystem).sortedByDescending { it.first.initiative }.forEach { (attacker, attacked) ->
-        attack(attacker, attacked)
-    }
-    immuneSystem.groups.removeIf { it.units <= 0 }
-    infection.groups.removeIf { it.units <= 0 }
-}
-
-fun attack(attacker: Group, attacked: Group) {
-    val killings = attacker.calculateKilling(attacked)
-    println("attacker=$attacker\nattacked=$attacked\nkillings=$killings attacked.units=${attacked.units}")
-    attacked.units -= killings
-}
-
-sealed class Army(open val groups: MutableList<Group>) {
-    val units
-        get() = groups.map { it.units }.sum()
-
-    constructor(vararg groups: Group) : this(groups.toMutableList())
-}
-data class InfectionArmy(override val groups: MutableList<Group>) : Army(groups){
-    constructor(vararg groups: Group) : this(groups.toMutableList())
-}
-data class ImmuneSystemArmy(override val groups: MutableList<Group>) : Army(groups){
-    constructor(vararg groups: Group) : this(groups.toMutableList())
-}
-
-data class Group(var units: Int,
-                 val hitPoints: Int,
-                 val immunities: Set<AttackType> = emptySet(),
-                 val weaknesses: Set<AttackType> = emptySet(),
-                 val attackDamage: Int,
-                 val attackType: AttackType,
-                 val initiative: Int) {
-    fun calculateDamage(attacked: Group): Int =
-        when (attackType) {
-            in attacked.weaknesses -> effectivePower * 2
-            in attacked.immunities -> 0
-            else -> effectivePower
-        }
-
-    fun calculateKilling(attacked: Group) = calculateKilling(calculateDamage(attacked), attacked)
-    fun calculateKilling(damage: Int, attacked: Group): Int = damage / attacked.hitPoints
-
-    val effectivePower
-        get() = units * attackDamage
-}
-
-enum class AttackType {
-    RADIATION, BLUDGEONING, FIRE, SLASHING, COLD
-}
