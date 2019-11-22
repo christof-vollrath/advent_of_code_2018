@@ -718,11 +718,11 @@ class Day24Spec : Spek({
             }
             on("find boost") {
                 val (immuneSystem, infection) = parseArmies(input)
-                val boost = findBoost(immuneSystem, infection)
+                val result = findBoost(immuneSystem, infection)
                 it("should have found the boost") {
-                    boost `should equal` 1570
-                    immuneSystem.units `should equal` 51
-                    infection.units `should equal` 0
+                    result.first `should equal` 1570
+                    result.second.units `should equal` 51
+                    result.third.units `should equal` 0
 
                 }
             }
@@ -731,7 +731,7 @@ class Day24Spec : Spek({
     }
 })
 
-fun findBoost(immuneSystem: ImmuneSystemArmy, infection: InfectionArmy): Int {
+fun findBoost(immuneSystem: ImmuneSystemArmy, infection: InfectionArmy): Triple<Int, ImmuneSystemArmy, InfectionArmy> {
     var currBoost = 10_000
     var lowerBoost = 0
     var upperBoost = currBoost
@@ -746,7 +746,7 @@ fun findBoost(immuneSystem: ImmuneSystemArmy, infection: InfectionArmy): Int {
         fightTilTheEnd(immuneSystemProbe, infectionProbe)
         if (immuneSystemProbe.units > 0) {
             println("immuneSystem wins")
-            if (currBoost == lowerBoost) return currBoost
+            if (currBoost == lowerBoost + 1) return Triple(currBoost, immuneSystemProbe, infectionProbe)
             upperBoost = currBoost
             currBoost = (currBoost + lowerBoost) / 2
         } else {
