@@ -6,6 +6,7 @@ import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
 import org.jetbrains.spek.api.dsl.on
 import org.jetbrains.spek.data_driven.data
+import java.lang.IllegalStateException
 import org.jetbrains.spek.data_driven.on as onData
 
 /*
@@ -704,17 +705,55 @@ class Day24Spec : Spek({
                 801 units each with 4706 hit points (weak to radiation) with an attack that does 116 bludgeoning damage at initiative 1
                 4485 units each with 2961 hit points (immune to radiation; weak to fire, cold) with an attack that does 12 slashing damage at initiative 4 
             """.trimIndent()
-            val (immuneSystem, infection) = parseArmies(input)
-            val boostedImmuneSystem = immuneSystem.boost(1570)
-            on("fight until the end") {
-                fightTilTheEnd(boostedImmuneSystem, infection)
-                it("should have the expected result") {
-                    boostedImmuneSystem.units `should equal` 51
-                    infection.units `should equal` 0
+            given("boosted immune system") {
+                val (immuneSystem, infection) = parseArmies(input)
+                val boostedImmuneSystem = immuneSystem.boost(1570)
+                on("fight until the end") {
+                    fightTilTheEnd(boostedImmuneSystem, infection)
+                    it("should have the expected result") {
+                        boostedImmuneSystem.units `should equal` 51
+                        infection.units `should equal` 0
+                    }
                 }
             }
+            on("find boost") {
+                val (immuneSystem, infection) = parseArmies(input)
+                val boost = findBoost(immuneSystem, infection)
+                it("should have found the boost") {
+                    boost `should equal` 1570
+                    immuneSystem.units `should equal` 51
+                    infection.units `should equal` 0
 
+                }
+            }
         }
 
     }
 })
+
+fun findBoost(immuneSystem: ImmuneSystemArmy, infection: InfectionArmy): Int {
+    var currBoost = 10_000
+    var lowerBoost = 0
+    var upperBoost = currBoost
+    while(true) {
+        val immuneSystemProbe = immuneSystem.boost(currBoost)
+        val infectionProbe = infection.copy(groups = infection.groups.map { it.copy() }.toMutableList())
+        println("probing boost $currBoost")
+        println("immune system probe")
+        println(immuneSystemProbe)
+        println("infection probe")
+        println(infectionProbe)
+        fightTilTheEnd(immuneSystemProbe, infectionProbe)
+        if (immuneSystemProbe.units > 0) {
+            println("immuneSystem wins")
+            if (currBoost == lowerBoost) return currBoost
+            upperBoost = currBoost
+            currBoost = (currBoost + lowerBoost) / 2
+        } else {
+            println("immuneSystem looses lowerBoost=$lowerBoost currBoost=$currBoost upperBoost=$upperBoost")
+            lowerBoost = currBoost
+            currBoost = (currBoost + upperBoost) / 2
+            if (currBoost >= upperBoost) throw java.lang.IllegalArgumentException("Curr boost $currBoost to low to find optimum, upperBoost $upperBoost")
+        }
+    }
+}
