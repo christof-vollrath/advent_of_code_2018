@@ -405,6 +405,15 @@ private fun parseAttackTypes(attackTypesString: String): Set<AttackType> =
 fun fightTilTheEnd(immuneSystem: ImmuneSystemArmy, infection: InfectionArmy) {
     while(immuneSystem.units > 0 && infection.units > 0) {
         fight(immuneSystem, infection)
+        println("Immune System:")
+        immuneSystem.groups.forEachIndexed { index, group ->
+            println("Group ${index+1} contains ${group.units} units attacks with ${group.attackType}, immune ${group.immunities}")
+        }
+        println("Infection:")
+        infection.groups.forEachIndexed { index, group ->
+            println("Group ${index+1} contains ${group.units} units attacks with ${group.attackType}, immune ${group.immunities}")
+        }
+        println()
     }
 }
 
@@ -723,16 +732,30 @@ class Day24Spec : Spek({
                     result.first `should equal` 1570
                     result.second.units `should equal` 51
                     result.third.units `should equal` 0
-
                 }
             }
         }
+        describe("exercise") {
+            given("exercise input") {
+                val input = readResource("day24Input.txt")
+                val (immuneSystem, infection) = parseArmies(input)
+                on("find boost") {
+                    val result = findBoost(immuneSystem, infection)
+                    it("should have found the boost") {
+                        println(result)
+                        result.first `should equal` 1570
+                        result.second.units `should equal` 51
+                        result.third.units `should equal` 0
 
+                    }
+                }
+            }
+        }
     }
 })
 
 fun findBoost(immuneSystem: ImmuneSystemArmy, infection: InfectionArmy): Triple<Int, ImmuneSystemArmy, InfectionArmy> {
-    var currBoost = 10_000
+    var currBoost = 2_000
     var lowerBoost = 0
     var upperBoost = currBoost
     while(true) {
