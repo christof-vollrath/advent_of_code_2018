@@ -7,6 +7,7 @@ import org.jetbrains.spek.api.dsl.it
 import org.jetbrains.spek.api.dsl.on
 import org.jetbrains.spek.data_driven.data
 import java.lang.IllegalStateException
+import kotlin.math.ceil
 import org.jetbrains.spek.data_driven.on as onData
 
 /*
@@ -404,22 +405,33 @@ private fun parseAttackTypes(attackTypesString: String): Set<AttackType> =
 
 fun fightTilTheEnd(immuneSystem: ImmuneSystemArmy, infection: InfectionArmy) {
     while(immuneSystem.units > 0 && infection.units > 0) {
+        if (immuneSystem.groups.size == 2 && infection.groups.size == 2) {
+            println("Both armies have only two groups")
+            if (immuneSystem.units == 780 || infection.units == 780) {
+                println("One army has size 780")
+            }
+        }
+        val unitsBeforeFight = immuneSystem.units + infection.units
         fight(immuneSystem, infection)
+        val unitsAfterFight =  immuneSystem.units + infection.units
+        if (unitsBeforeFight == unitsAfterFight) break // Stagnation ends with a draw
         println("Immune System:")
         immuneSystem.groups.forEachIndexed { index, group ->
-            println("Group ${index+1} contains ${group.units} units attacks with ${group.attackType}, immune ${group.immunities}")
+            println("Group ${index+1} contains ${group.units} units attacks with ${group.attackDamage} ${group.attackType}, immune ${group.immunities}")
         }
         println("Infection:")
         infection.groups.forEachIndexed { index, group ->
-            println("Group ${index+1} contains ${group.units} units attacks with ${group.attackType}, immune ${group.immunities}")
+            println("Group ${index+1} contains ${group.units} units attacks with ${group.attackDamage} ${group.attackType}, immune ${group.immunities}")
         }
         println()
     }
 }
 
 fun targetSelection(infectionArmy: InfectionArmy, immuneSystemArmy: ImmuneSystemArmy): List<Pair<Group, Group>> {
-    val infectionGroupsWithTarget= choseTargets(infectionArmy, immuneSystemArmy)
-    val immuneSystemGroupsWithTarget= choseTargets(immuneSystemArmy, infectionArmy)
+    val infectionGroupsWithTarget = choseTargets(infectionArmy, immuneSystemArmy)
+    println("infection targets: ${infectionGroupsWithTarget.map { (a, b) -> a.units to b.units }}")
+    val immuneSystemGroupsWithTarget = choseTargets(immuneSystemArmy, infectionArmy)
+    println("immuneSystem targets: ${immuneSystemGroupsWithTarget.map { (a, b) -> a.units to b.units }}")
     return infectionGroupsWithTarget + immuneSystemGroupsWithTarget
 }
 
@@ -440,7 +452,11 @@ fun choseTarget(attacker: Group, targets: Set<Group>): Group? {
     val targetSelectionComparator = compareByDescending<Pair<Group, Int>> { it.second }
             .thenByDescending { it.first.effectivePower }
             .thenByDescending { it.first.initiative }
-    return targetsWithDamage.sortedWith(targetSelectionComparator).firstOrNull()?.first
+    return targetsWithDamage.filter { (_, damage) ->
+            damage > 0 // Don't attack when no damage
+        }
+        .sortedWith(targetSelectionComparator)
+        .firstOrNull()?.first
 }
 
 fun fight(immuneSystem: ImmuneSystemArmy, infection: InfectionArmy) {
@@ -452,9 +468,14 @@ fun fight(immuneSystem: ImmuneSystemArmy, infection: InfectionArmy) {
 }
 
 fun attack(attacker: Group, attacked: Group) {
+    if (attacked.units == 4521) {
+        println("attacked.units == 4521")
+    }
     val killings = attacker.calculateKilling(attacked)
+    println("attacker.units=${attacker.units} killings=kilings, attacked.units=${attacked.units}")
     if (killings > attacked.units) attacked.units = 0
     else attacked.units -= killings
+    println("attacked.units=${attacked.units}")
 }
 
 sealed class Army(open val groups: MutableList<Group>) {
@@ -743,8 +764,8 @@ class Day24Spec : Spek({
                     val result = findBoost(immuneSystem, infection)
                     it("should have found the boost") {
                         println(result)
-                        result.first `should equal` 1570
-                        result.second.units `should equal` 51
+                        result.first `should equal` 79
+                        result.second.units `should equal` 1083
                         result.third.units `should equal` 0
 
                     }
@@ -767,16 +788,16 @@ fun findBoost(immuneSystem: ImmuneSystemArmy, infection: InfectionArmy): Triple<
         println("infection probe")
         println(infectionProbe)
         fightTilTheEnd(immuneSystemProbe, infectionProbe)
-        if (immuneSystemProbe.units > 0) {
+        if (immuneSystemProbe.units > 0 && infectionProbe.units == 0) {
             println("immuneSystem wins")
             if (currBoost == lowerBoost + 1) return Triple(currBoost, immuneSystemProbe, infectionProbe)
             upperBoost = currBoost
             currBoost = (currBoost + lowerBoost) / 2
         } else {
-            println("immuneSystem looses lowerBoost=$lowerBoost currBoost=$currBoost upperBoost=$upperBoost")
+            println("immuneSystem looses or draw immuneSystem=${immuneSystemProbe.units} infection=${infectionProbe.units}  lowerBoost=$lowerBoost currBoost=$currBoost upperBoost=$upperBoost")
             lowerBoost = currBoost
-            currBoost = (currBoost + upperBoost) / 2
-            if (currBoost >= upperBoost) throw java.lang.IllegalArgumentException("Curr boost $currBoost to low to find optimum, upperBoost $upperBoost")
+            currBoost = ceil((currBoost + upperBoost) / 2.0).toInt()
+            if (currBoost > upperBoost) throw java.lang.IllegalArgumentException("Curr boost $currBoost to low to find optimum, upperBoost $upperBoost")
         }
     }
 }
