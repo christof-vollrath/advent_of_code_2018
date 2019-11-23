@@ -1,4 +1,3 @@
-import org.amshove.kluent.`should be greater than`
 import org.amshove.kluent.`should equal`
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
@@ -6,7 +5,6 @@ import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
 import org.jetbrains.spek.api.dsl.on
 import org.jetbrains.spek.data_driven.data
-import java.lang.IllegalStateException
 import kotlin.math.ceil
 import org.jetbrains.spek.data_driven.on as onData
 
@@ -358,9 +356,11 @@ fun parseArmies(input: String): Pair<ImmuneSystemArmy, InfectionArmy> {
             line.isBlank() -> {} // Ignore
             line.startsWith("Immune System:") -> parseImmuneSystem = true
             line.startsWith("Infection:") -> parseImmuneSystem = false
-            else -> if (parseImmuneSystem == null) throw IllegalArgumentException("Input lines without header")
-            else if (parseImmuneSystem!!) immuneSystemLines += line
-            else infectionLines += line
+            else -> when {
+                parseImmuneSystem == null -> throw IllegalArgumentException("Input lines without header")
+                parseImmuneSystem!! -> immuneSystemLines += line
+                else -> infectionLines += line
+            }
         }
     }
     return Pair(
@@ -380,7 +380,7 @@ fun parseGroupLine(input: String): Group {
 }
 
 fun parseProperties(input: String): Pair<Set<AttackType>, Set<AttackType>> {
-    if (input.isNotBlank()) {
+    return if (input.isNotBlank()) {
         val weaknessesRegex = """(.*weak to ([a-z, ]+).*)?""".toRegex()
         val weaknessesMatch = weaknessesRegex.find(input) ?: throw IllegalArgumentException("Can not parse input $input")
         val weaknesses = if (weaknessesMatch.groupValues.size == 3) {
@@ -393,8 +393,8 @@ fun parseProperties(input: String): Pair<Set<AttackType>, Set<AttackType>> {
             val immunitiesString = immunitiesMatch.groupValues[2]
             parseAttackTypes(immunitiesString)
         } else emptySet()
-        return Pair(weaknesses, immunities)
-    } else return Pair(emptySet(), emptySet())
+        Pair(weaknesses, immunities)
+    } else Pair(emptySet(), emptySet())
 }
 
 private fun parseAttackTypes(attackTypesString: String): Set<AttackType> =
@@ -405,33 +405,16 @@ private fun parseAttackTypes(attackTypesString: String): Set<AttackType> =
 
 fun fightTilTheEnd(immuneSystem: ImmuneSystemArmy, infection: InfectionArmy) {
     while(immuneSystem.units > 0 && infection.units > 0) {
-        if (immuneSystem.groups.size == 2 && infection.groups.size == 2) {
-            println("Both armies have only two groups")
-            if (immuneSystem.units == 780 || infection.units == 780) {
-                println("One army has size 780")
-            }
-        }
-        val unitsBeforeFight = immuneSystem.units + infection.units
+       val unitsBeforeFight = immuneSystem.units + infection.units
         fight(immuneSystem, infection)
         val unitsAfterFight =  immuneSystem.units + infection.units
         if (unitsBeforeFight == unitsAfterFight) break // Stagnation ends with a draw
-        println("Immune System:")
-        immuneSystem.groups.forEachIndexed { index, group ->
-            println("Group ${index+1} contains ${group.units} units attacks with ${group.attackDamage} ${group.attackType}, immune ${group.immunities}")
-        }
-        println("Infection:")
-        infection.groups.forEachIndexed { index, group ->
-            println("Group ${index+1} contains ${group.units} units attacks with ${group.attackDamage} ${group.attackType}, immune ${group.immunities}")
-        }
-        println()
     }
 }
 
 fun targetSelection(infectionArmy: InfectionArmy, immuneSystemArmy: ImmuneSystemArmy): List<Pair<Group, Group>> {
     val infectionGroupsWithTarget = choseTargets(infectionArmy, immuneSystemArmy)
-    println("infection targets: ${infectionGroupsWithTarget.map { (a, b) -> a.units to b.units }}")
     val immuneSystemGroupsWithTarget = choseTargets(immuneSystemArmy, infectionArmy)
-    println("immuneSystem targets: ${immuneSystemGroupsWithTarget.map { (a, b) -> a.units to b.units }}")
     return infectionGroupsWithTarget + immuneSystemGroupsWithTarget
 }
 
@@ -468,21 +451,15 @@ fun fight(immuneSystem: ImmuneSystemArmy, infection: InfectionArmy) {
 }
 
 fun attack(attacker: Group, attacked: Group) {
-    if (attacked.units == 4521) {
-        println("attacked.units == 4521")
-    }
     val killings = attacker.calculateKilling(attacked)
-    println("attacker.units=${attacker.units} killings=kilings, attacked.units=${attacked.units}")
     if (killings > attacked.units) attacked.units = 0
     else attacked.units -= killings
-    println("attacked.units=${attacked.units}")
 }
 
 sealed class Army(open val groups: MutableList<Group>) {
     val units
         get() = groups.map { it.units }.sum()
 
-    constructor(vararg groups: Group) : this(groups.toMutableList())
 }
 data class InfectionArmy(override val groups: MutableList<Group>) : Army(groups){
     constructor(vararg groups: Group) : this(groups.toMutableList())
@@ -763,7 +740,6 @@ class Day24Spec : Spek({
                 on("find boost") {
                     val result = findBoost(immuneSystem, infection)
                     it("should have found the boost") {
-                        println(result)
                         result.first `should equal` 79
                         result.second.units `should equal` 1083
                         result.third.units `should equal` 0
@@ -779,25 +755,17 @@ fun findBoost(immuneSystem: ImmuneSystemArmy, infection: InfectionArmy): Triple<
     var currBoost = 2_000
     var lowerBoost = 0
     var upperBoost = currBoost
-    while(true) {
+    while(true) { // binary search
         val immuneSystemProbe = immuneSystem.boost(currBoost)
         val infectionProbe = infection.copy(groups = infection.groups.map { it.copy() }.toMutableList())
-        println("probing boost $currBoost")
-        println("immune system probe")
-        println(immuneSystemProbe)
-        println("infection probe")
-        println(infectionProbe)
         fightTilTheEnd(immuneSystemProbe, infectionProbe)
         if (immuneSystemProbe.units > 0 && infectionProbe.units == 0) {
-            println("immuneSystem wins")
             if (currBoost == lowerBoost + 1) return Triple(currBoost, immuneSystemProbe, infectionProbe)
             upperBoost = currBoost
             currBoost = (currBoost + lowerBoost) / 2
         } else {
-            println("immuneSystem looses or draw immuneSystem=${immuneSystemProbe.units} infection=${infectionProbe.units}  lowerBoost=$lowerBoost currBoost=$currBoost upperBoost=$upperBoost")
             lowerBoost = currBoost
             currBoost = ceil((currBoost + upperBoost) / 2.0).toInt()
-            if (currBoost > upperBoost) throw java.lang.IllegalArgumentException("Curr boost $currBoost to low to find optimum, upperBoost $upperBoost")
         }
     }
 }
