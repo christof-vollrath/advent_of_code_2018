@@ -1,8 +1,10 @@
 import org.amshove.kluent.`should equal`
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
+import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
 import org.jetbrains.spek.data_driven.data
+import java.lang.Math.abs
 import org.jetbrains.spek.data_driven.on as onData
 
 /*
@@ -115,11 +117,91 @@ How many constellations are formed by the fixed points in spacetime?
 
 */
 
+fun manhattanDistance(from: List<Int>, to: List<Int>): Int = from.zip(to).map { (from, to) -> abs(to - from) }.sum()
+
 class Day25Spec : Spek({
 
     describe("part 1") {
+         describe("manhattan distance 4d") {
+            val testData = arrayOf(
+                    data( listOf(0, 0, 0, 0), listOf(0, 0, 0, 0), 0),
+                    data( listOf(0, 0, 0, 0), listOf(1, -1, 0, 0), 2),
+                    data( listOf(0, 0, 0, 0), listOf(1, 2, 3, 4), 10),
+                    data( listOf(1, 2, 3, 4), listOf(0, 0, 0, 0), 10)
+            )
+            onData("from %s to %s", with = *testData) { from, to, expected ->
+                manhattanDistance(from, to) `should equal` expected
+            }
+        }
+        describe("parse space time points") {
+            given("a line of space time points") {
+                val input = "1, 2,3, 4"
+                it("should be parsed correctly") {
+                    parseSpaceTimePoint(input) `should equal` listOf(1, 2, 3, 4)
+                }
+            }
+            given("some space time points") {
+                val input = """
+                        1, 2, 3, 4
+                        4, 3, 2, 1
+                    """.trimIndent()
+                it("should be parsed to a list of space time points") {
+                    val result = parseSpaceTimePoints(input)
+                    result `should equal` listOf(
+                            listOf(1, 2, 3, 4),
+                            listOf(4, 3, 2, 1)
+                    )
+
+                }
+            }
+        }
+        describe("find constellation") {
+            given("unconnected space time points") {
+                val spaceTimePoints = listOf(
+                        listOf(0, 0, 0, 0),
+                        listOf(0, 4, 0, 0),
+                        listOf(0, 0, 4, 0),
+                        listOf(0, 0, 0, 4)
+                )
+                it("should return constellations with single space time points") {
+                    constellations(spaceTimePoints) `should equal`
+                            setOf(
+                                    setOf(listOf(0, 0, 0, 0)),
+                                    setOf(listOf(0, 4, 0, 0)),
+                                    setOf(listOf(0, 0, 4, 0)),
+                                    setOf(listOf(0, 0, 0, 4))
+                            )
+                }
+            }
+            given("connected space time points") {
+                val spaceTimePoints = listOf(
+                        listOf(0, 0, 0, 0),
+                        listOf(0, 3, 0, 0)
+                )
+                it("should return constellations with constellation") {
+                    constellations(spaceTimePoints) `should equal`
+                            setOf(
+                                    setOf(listOf(0, 0, 0, 0), listOf(0, 3, 0, 0))
+                            )
+                }
+            }
+            given("more connected space time points") {
+                val spaceTimePoints = listOf(
+                        listOf(0, 0, 0, 0),
+                        listOf(0, 3, 0, 0),
+                        listOf(0, 3, 3, 0)
+
+                )
+                it("should return constellations with constellation") {
+                    constellations(spaceTimePoints) `should equal`
+                            setOf(
+                                    setOf(listOf(0, 0, 0, 0), listOf(0, 3, 0, 0), listOf(0, 3, 3, 0))
+                            )
+                }
+            }
+        }
         describe("examples") {
-            describe("calculate damage") {
+            describe("find constellations for examples") {
                 val testData = arrayOf(
                     data(
                         """
@@ -183,10 +265,37 @@ class Day25Spec : Spek({
     }
 })
 
-fun constellations(input: List<IntArray>): Set<List<IntArray>> {
-    TODO()
-}
+fun parseSpaceTimePoint(input: String): List<Int> = input.split(",")
+        .map { it.trim().toInt() }.toList()
 
-fun parseSpaceTimePoints(inputString: String): List<IntArray> {
-    TODO()
+fun parseSpaceTimePoints(input: String): List<List<Int>> = input.split("\n")
+        .map { parseSpaceTimePoint(it) }
+
+fun constellations(input: List<List<Int>>): Set<Set<List<Int>>> {
+
+    fun fillConstellation(result: MutableSet<List<Int>>, newPoints: Set<List<Int>>, unprocessedInput: MutableList<List<Int>>) {
+        val nearPoints = unprocessedInput.filter { unprocessedPoint ->
+            newPoints.any { manhattanDistance(it,unprocessedPoint) <= 3}
+        }
+        if (nearPoints.isNotEmpty()) {
+            result.addAll(nearPoints)
+            unprocessedInput.removeAll(nearPoints)
+            fillConstellation(result, nearPoints.toSet(), unprocessedInput)
+        }
+    }
+
+    fun createConstellation(startWith: List<Int>, unprocessedInput: MutableList<List<Int>>): Set<List<Int>> {
+        val result = mutableSetOf(startWith)
+        fillConstellation(result, result, unprocessedInput)
+        return result
+    }
+
+    val unprocessedInput = input.toMutableList()
+    val result = mutableSetOf<Set<List<Int>>>()
+    while(true) {
+        val spaceTimePoint = unprocessedInput.firstOrNull() ?: break
+        unprocessedInput.remove(spaceTimePoint)
+        result.add(createConstellation(spaceTimePoint, unprocessedInput))
+    }
+    return result
 }
