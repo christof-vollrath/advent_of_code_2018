@@ -456,6 +456,25 @@ fun attack(attacker: Group, attacked: Group) {
     else attacked.units -= killings
 }
 
+fun findBoost(immuneSystem: ImmuneSystemArmy, infection: InfectionArmy): Triple<Int, ImmuneSystemArmy, InfectionArmy> {
+    var currBoost = 2_000
+    var lowerBoost = 0
+    var upperBoost = currBoost
+    while(true) { // binary search
+        val immuneSystemProbe = immuneSystem.boost(currBoost)
+        val infectionProbe = infection.copy(groups = infection.groups.map { it.copy() }.toMutableList())
+        fightTilTheEnd(immuneSystemProbe, infectionProbe)
+        if (immuneSystemProbe.units > 0 && infectionProbe.units == 0) {
+            if (currBoost == lowerBoost + 1) return Triple(currBoost, immuneSystemProbe, infectionProbe)
+            upperBoost = currBoost
+            currBoost = (currBoost + lowerBoost) / 2
+        } else {
+            lowerBoost = currBoost
+            currBoost = ceil((currBoost + upperBoost) / 2.0).toInt()
+        }
+    }
+}
+
 sealed class Army(open val groups: MutableList<Group>) {
     val units
         get() = groups.map { it.units }.sum()
@@ -750,22 +769,3 @@ class Day24Spec : Spek({
         }
     }
 })
-
-fun findBoost(immuneSystem: ImmuneSystemArmy, infection: InfectionArmy): Triple<Int, ImmuneSystemArmy, InfectionArmy> {
-    var currBoost = 2_000
-    var lowerBoost = 0
-    var upperBoost = currBoost
-    while(true) { // binary search
-        val immuneSystemProbe = immuneSystem.boost(currBoost)
-        val infectionProbe = infection.copy(groups = infection.groups.map { it.copy() }.toMutableList())
-        fightTilTheEnd(immuneSystemProbe, infectionProbe)
-        if (immuneSystemProbe.units > 0 && infectionProbe.units == 0) {
-            if (currBoost == lowerBoost + 1) return Triple(currBoost, immuneSystemProbe, infectionProbe)
-            upperBoost = currBoost
-            currBoost = (currBoost + lowerBoost) / 2
-        } else {
-            lowerBoost = currBoost
-            currBoost = ceil((currBoost + upperBoost) / 2.0).toInt()
-        }
-    }
-}
