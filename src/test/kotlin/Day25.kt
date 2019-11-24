@@ -3,6 +3,7 @@ import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
+import org.jetbrains.spek.api.dsl.on
 import org.jetbrains.spek.data_driven.data
 import java.lang.Math.abs
 import org.jetbrains.spek.data_driven.on as onData
@@ -119,15 +120,50 @@ How many constellations are formed by the fixed points in spacetime?
 
 fun manhattanDistance(from: List<Int>, to: List<Int>): Int = from.zip(to).map { (from, to) -> abs(to - from) }.sum()
 
+fun parseSpaceTimePoint(input: String): List<Int> = input.split(",")
+        .map { it.trim().toInt() }.toList()
+
+fun parseSpaceTimePoints(input: String): List<List<Int>> = input.split("\n")
+        .map { parseSpaceTimePoint(it) }
+
+fun constellations(input: List<List<Int>>): Set<Set<List<Int>>> {
+
+    fun fillConstellation(result: MutableSet<List<Int>>, newPoints: Set<List<Int>>, unprocessedInput: MutableList<List<Int>>) {
+        val nearPoints = unprocessedInput.filter { unprocessedPoint ->
+            newPoints.any { manhattanDistance(it,unprocessedPoint) <= 3}
+        }
+        if (nearPoints.isNotEmpty()) {
+            result.addAll(nearPoints)
+            unprocessedInput.removeAll(nearPoints)
+            fillConstellation(result, nearPoints.toSet(), unprocessedInput)
+        }
+    }
+
+    fun createConstellation(startWith: List<Int>, unprocessedInput: MutableList<List<Int>>): Set<List<Int>> {
+        val result = mutableSetOf(startWith)
+        fillConstellation(result, result, unprocessedInput)
+        return result
+    }
+
+    val unprocessedInput = input.toMutableList()
+    val result = mutableSetOf<Set<List<Int>>>()
+    while(true) {
+        val spaceTimePoint = unprocessedInput.firstOrNull() ?: break
+        unprocessedInput.remove(spaceTimePoint)
+        result.add(createConstellation(spaceTimePoint, unprocessedInput))
+    }
+    return result
+}
+
 class Day25Spec : Spek({
 
     describe("part 1") {
-         describe("manhattan distance 4d") {
+        describe("manhattan distance 4d") {
             val testData = arrayOf(
-                    data( listOf(0, 0, 0, 0), listOf(0, 0, 0, 0), 0),
-                    data( listOf(0, 0, 0, 0), listOf(1, -1, 0, 0), 2),
-                    data( listOf(0, 0, 0, 0), listOf(1, 2, 3, 4), 10),
-                    data( listOf(1, 2, 3, 4), listOf(0, 0, 0, 0), 10)
+                    data(listOf(0, 0, 0, 0), listOf(0, 0, 0, 0), 0),
+                    data(listOf(0, 0, 0, 0), listOf(1, -1, 0, 0), 2),
+                    data(listOf(0, 0, 0, 0), listOf(1, 2, 3, 4), 10),
+                    data(listOf(1, 2, 3, 4), listOf(0, 0, 0, 0), 10)
             )
             onData("from %s to %s", with = *testData) { from, to, expected ->
                 manhattanDistance(from, to) `should equal` expected
@@ -203,8 +239,8 @@ class Day25Spec : Spek({
         describe("examples") {
             describe("find constellations for examples") {
                 val testData = arrayOf(
-                    data(
-                        """
+                        data(
+                                """
                          0,0,0,0
                          3,0,0,0
                          0,3,0,0
@@ -215,7 +251,7 @@ class Day25Spec : Spek({
                         12,0,0,0 
                         """.trimIndent(), 2),
                         data(
-                        """
+                                """
                         -1,2,2,0
                         0,0,2,-2
                         0,0,0,-2
@@ -228,7 +264,7 @@ class Day25Spec : Spek({
                         3,0,0,0
                         """.trimIndent(), 4),
                         data(
-                        """
+                                """
                         1,-1,0,1
                         2,0,-1,0
                         3,2,-1,0
@@ -241,7 +277,7 @@ class Day25Spec : Spek({
                         3,2,0,2
                         """.trimIndent(), 3),
                         data(
-                        """
+                                """
                         1,-1,-1,-2
                         -2,-2,0,1
                         0,2,1,3
@@ -260,42 +296,14 @@ class Day25Spec : Spek({
                     constellations(input).size `should equal` expected
                 }
             }
-
+        }
+        describe("exercise") {
+            given("exercise input") {
+                val inputString = readResource("day25Input.txt")
+                val input = parseSpaceTimePoints(inputString)
+                it("should find the right number of constellations") {
+                    constellations(input).size `should equal` 346               }
+            }
         }
     }
 })
-
-fun parseSpaceTimePoint(input: String): List<Int> = input.split(",")
-        .map { it.trim().toInt() }.toList()
-
-fun parseSpaceTimePoints(input: String): List<List<Int>> = input.split("\n")
-        .map { parseSpaceTimePoint(it) }
-
-fun constellations(input: List<List<Int>>): Set<Set<List<Int>>> {
-
-    fun fillConstellation(result: MutableSet<List<Int>>, newPoints: Set<List<Int>>, unprocessedInput: MutableList<List<Int>>) {
-        val nearPoints = unprocessedInput.filter { unprocessedPoint ->
-            newPoints.any { manhattanDistance(it,unprocessedPoint) <= 3}
-        }
-        if (nearPoints.isNotEmpty()) {
-            result.addAll(nearPoints)
-            unprocessedInput.removeAll(nearPoints)
-            fillConstellation(result, nearPoints.toSet(), unprocessedInput)
-        }
-    }
-
-    fun createConstellation(startWith: List<Int>, unprocessedInput: MutableList<List<Int>>): Set<List<Int>> {
-        val result = mutableSetOf(startWith)
-        fillConstellation(result, result, unprocessedInput)
-        return result
-    }
-
-    val unprocessedInput = input.toMutableList()
-    val result = mutableSetOf<Set<List<Int>>>()
-    while(true) {
-        val spaceTimePoint = unprocessedInput.firstOrNull() ?: break
-        unprocessedInput.remove(spaceTimePoint)
-        result.add(createConstellation(spaceTimePoint, unprocessedInput))
-    }
-    return result
-}
