@@ -273,13 +273,28 @@ class Day23Spec : Spek({
                     )
                 }
             }
-            on("guess overlapping regions") {
-                val overlappingRegions = regions.guessOverlappingRegions(51)
-                it("should have guessed the overlapping region") {
-                    overlappingRegions.first() `should equal` setOf(
-                            RangeRegion(topLeftFront=Coord3(x=8, y=10, z=10), bottomRightBack=Coord3(x=12, y=14, z=14)),
-                            RangeRegion(topLeftFront=Coord3(x=-150, y=-150, z=-150), bottomRightBack=Coord3(x=250, y=250, z=250))
-                    )
+        }
+        describe("guess overlapping regions by projecting them to a scaled grid") {
+            val input = """
+                pos=<10,10,10>, r=2
+                pos=<20,20,20>, r=2
+                pos=<30,30,30>, r=10
+            """.trimIndent()
+            val regions = parseNanobots(input).rangeRegions()
+            println(regions)
+            val testData = arrayOf(
+                    data(1, 1, 3),
+                    data(2, 8, 3),
+                    data(3, 27, 3),
+                    data(4, 46, 3),
+                    data(10, 388, 2)
+            )
+            onData("for grid size %s it should find results", with = *testData) { input, expectedNot0, expectedMax ->
+                val overlappingRegions = regions.guessOverlappingRegions(input)
+                it("should guess the right regions") {
+                    overlappingRegions.take(100).forEach { println(it.size) }
+                    overlappingRegions.filter { it.size != 0 }.size `should equal`  expectedNot0
+                    overlappingRegions.maxBy { it.size }?.size `should equal` expectedMax
                 }
             }
         }
@@ -302,6 +317,10 @@ class Day23Spec : Spek({
             it("should find all regions to combine to get the best region") {
                 nanobots.rangeRegions().overlappingRegions().maxBy { it.second.size }!!.second.size `should equal` 5
             }
+            it("should find all regions to combine to get the best region (2)") {
+                val overlapping = nanobots.rangeRegions().overlappingRegions2()
+                overlapping.entries.maxBy { it.value.size }!!.value.size `should equal` 6
+            }
         }
         given("exercise") {
             val inputString = readResource("day23Input.txt")
@@ -322,8 +341,16 @@ class Day23Spec : Spek({
                 result `should equal` Coord3(x=121751563, y=45478419, z=81689284)
                 println(Coord3(0, 0, 0) manhattanDistance  result)
             }
-            it("should throw an illegal argument exception, because not all regions in the exercise overlap") {
+            xit("should throw an illegal argument exception, because not all regions in the exercise overlap") {
                 { nanobots.maxInRangeOverlappingAll() }  `should throw`  IllegalArgumentException::class
+            }
+            xit("should find all regions to combine to get the best region (2)") {
+                val overlapping = nanobots.rangeRegions().overlappingRegions2()
+                overlapping.entries.maxBy { it.value.size }!!.value.size `should equal` 6
+            }
+            it("should find hot spots (regions where a lot overlap") {
+                val overlappingRegions = nanobots.rangeRegions().guessOverlappingRegions(100)
+                overlappingRegions.take(100).forEach { println(it.size) }
             }
         }
     }
@@ -336,15 +363,13 @@ private fun List<RangeRegion>.guessOverlappingRegions(gridSize: Int): List<Set<R
         }
     }
     val offsetAndScale = offsetAndScale((gridSize-1).toDouble())
-    map { region ->
-        region.offsetAndScale(offsetAndScale)
-    }
+    println(offsetAndScale)
     // Fill grid with all regions
     forEach { region ->
         val scaledRegion = region.offsetAndScale(offsetAndScale)
         (scaledRegion.topLeftFront.x..scaledRegion.bottomRightBack.x).map { x ->
             (scaledRegion.topLeftFront.y..scaledRegion.bottomRightBack.y).map { y ->
-                (scaledRegion.topLeftFront.z..scaledRegion.bottomRightBack.y).map { z ->
+                (scaledRegion.topLeftFront.z..scaledRegion.bottomRightBack.z).map { z ->
                     grid[x][y][z].add(region)
                 }
             }
@@ -470,6 +495,35 @@ fun List<RangeRegion>.overlappingRegionsCount2(nested: Boolean = true): Set<Pair
     return resultMap.entries.map { entry -> entry.key to entry.value }.toSet()
 }
 
+fun List<RangeRegion>.overlappingRegions2(): Map<RangeRegion, Set<RangeRegion>> {
+    fun MutableMap<RangeRegion, Set<RangeRegion>>.addRegions(region: RangeRegion, containing: Set<RangeRegion>) {
+        val existing = get(region)
+        if (existing == null) put(region, containing)
+        else put(region, containing)
+    }
+    var resultMap = mutableMapOf<RangeRegion, Set<RangeRegion>>()
+    var i = 0
+    sortedBy { it.topLeftFront.x }
+            .forEach { region ->
+                i++; println(i); if (i % 10 == 0) println("${resultMap.entries.maxBy { it.value.size }?.key}")
+                val currentRegions = resultMap.entries
+                println("currentRegions.size = ${currentRegions.size}")
+                val newRegions = sequence {
+                    yield(region to setOf(region))
+                    currentRegions.forEach { next ->
+                        val overlap = region.overlap(next.key)
+                        if (overlap != null) yield(overlap to next.value + region)
+                    }
+                }.toList()
+                println("newRegions.size = ${newRegions.size}")
+                newRegions.forEach {
+                    resultMap.addRegions(it.first, it.second)
+                }
+            }
+    return resultMap
+
+}
+
 fun List<RangeRegion>.overlapAllRegions(): RangeRegion {
     val firstRegion = first()
     val nextRegions = drop(1)
@@ -520,8 +574,8 @@ data class RangeRegion(val topLeftFront: Coord3, val bottomRightBack: Coord3) {
         }
     }
     fun offsetAndScale(offsetAndScale: Pair<Coord3, Scale3>): RangeRegion {
-        fun calculateUp(coord: Int, offset: Int, scale: Double) = floor((coord + offset) * scale).toInt()
-        fun calculateDown(coord: Int, offset: Int, scale: Double) = ceil((coord + offset) * scale).toInt()
+        fun calculateUp(coord: Int, offset: Int, scale: Double) = ceil((coord + offset) * scale).toInt()
+        fun calculateDown(coord: Int, offset: Int, scale: Double) = floor((coord + offset) * scale).toInt()
         val offset = offsetAndScale.first
         val scale = offsetAndScale.second
         return RangeRegion(Coord3(calculateDown(topLeftFront.x, offset.x, scale.x), calculateDown(topLeftFront.y, offset.y, scale.y), calculateDown(topLeftFront.z, offset.z, scale.z)),
