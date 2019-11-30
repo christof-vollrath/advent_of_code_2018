@@ -321,6 +321,9 @@ class Day23Spec : Spek({
                 val overlapping = nanobots.rangeRegions().overlappingRegions2()
                 overlapping.entries.maxBy { it.value.size }!!.value.size `should equal` 6
             }
+            it("should find the coord where most nanobots are in range (optimzed)") {
+                nanobots.maxInRangeOptimized() `should equal` Coord3(12, 12, 12)
+            }
         }
         given("exercise") {
             val inputString = readResource("day23Input.txt")
@@ -351,6 +354,9 @@ class Day23Spec : Spek({
             it("should find hot spots (regions where a lot overlap") {
                 val overlappingRegionsMap = nanobots.rangeRegions().guessOverlappingRegionsWithContainingRegion(50)
                 overlappingRegionsMap.entries.take(100).forEach { println("${it.key} ${it.key.bottomRightBack manhattanDistance it.key.topLeftFront} ${it.value.size}") }
+            }
+            it("should find the coord where most nanobots are in range by first guessing") {
+                nanobots.maxInRangeOptimized() `should equal` Coord3(12, 12, 12)
             }
         }
     }
@@ -588,8 +594,8 @@ fun Set<Pair<RangeRegion, Int>>.selectBestRegion() = maxBy { it.second }!!.first
 
 data class RangeRegion(val topLeftFront: Coord3, val bottomRightBack: Coord3) {
     fun selectCoord(nanobots: List<Nanobot>, simplify: Boolean = true): Coord3 {
-        println(Coord3(0, 0, 0) manhattanDistance topLeftFront)
-        println(Coord3(0, 0, 0) manhattanDistance bottomRightBack)
+        println("topLeftFront: $topLeftFront "); println(Coord3(0, 0, 0) manhattanDistance topLeftFront)
+        println("bottomRightBack: $bottomRightBack "); println(Coord3(0, 0, 0) manhattanDistance bottomRightBack)
         return if (simplify) topLeftFront
         else {
             val coords = (topLeftFront.x..bottomRightBack.x).flatMap { x ->
